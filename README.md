@@ -1,6 +1,7 @@
 # Invoke-Recon
-Powershell script for the very first domain enumeration
-
+Powershell script for the very first domain enumeration.  
+Just because i'm tired to type the same AD / PowerView commands over and over.  
+  
 # First import the right modules
 ```
 git clone --recurse-submodules git@github.com:phackt/Invoke-Recon.git
