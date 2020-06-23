@@ -66,19 +66,17 @@ if (-Not (((Get-Module -Name "*PowerSploit*") -ne $null -or (Get-Module -Name "*
 $CurDir = (Get-Location).Path
 $EnumDir = "$CurDir\results\$Domain\enumeration"
 $QuickWinsDir = "$CurDir\results\$Domain\quickwins"
+$OutputDirs = @($EnumDir,$QuickWinsDir)
 
 #
 # Creating output dirs
 #
 
-If(!(Test-Path $EnumDir))
-{
-      New-Item -ItemType Directory -Force -Path "$EnumDir" > $null
-}
-
-If(!(Test-Path $QuickWinsDir))
-{
-      New-Item -ItemType Directory -Force -Path "$QuickWinsDir" > $null
+foreach ($OutputDir in $OutputDirs){
+    If(!(Test-Path "$OutputDir"))
+    {
+          New-Item -ItemType Directory -Force -Path "$OutputDir" > $null
+    }
 }
 
 # ----------------------------------------------------------------
