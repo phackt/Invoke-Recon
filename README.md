@@ -102,4 +102,5 @@ MemberSID               : S-1-5-21-3965405831-1015596948-2589850225-1122
 
 # Todo
 - PowerUpSQL
+- If msDS-AllowedToDelegateTo empty, look for a service having in its msDS-AllowedToActOnBehalfOfOtherIdentity the service delegating
 - Cross the results

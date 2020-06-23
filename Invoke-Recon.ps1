@@ -276,6 +276,8 @@ Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Fi
 Write-Banner -Text "Managed Service Accounts with constrained delegation and protocol transition"
 Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {TrustedToAuthForDelegation -eq $True} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\constrained_t2a4d_msa.csv" | ConvertFrom-Csv
 
+# TODO if msDS-AllowedToDelegateTo empty, look for a service having in its msDS-AllowedToActOnBehalfOfOtherIdentity the service delegating
+
 #
 # Find objects with Replicating Directory Changes / Replicating Directory Changes All
 #
