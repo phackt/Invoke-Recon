@@ -147,7 +147,7 @@ Get-DomainComputer -Domain $Domain -Server $PDC.IP4Address | Export-CSV -Path "$
 # Privileged accounts
 #
 
-Write-Banner -Text "Nested privileged accounts - saving into ""$EnumDir\privileged_accounts.csv"""
+Write-Banner -Text "Nested privileged users"
 <#
     "Administrators",        
     "Domain Admins",       
