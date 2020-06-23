@@ -20,7 +20,6 @@ Import-Module .\ActiveDirectory\ActiveDirectory.psd1
 ################################################################
 ################################################################
 
-
 +------+------------------------------------------------+------+
 | Searching PDC
 +------+------------------------------------------------+------+
@@ -51,7 +50,52 @@ IP4Address : 192.168.2.1
 
 
 +------+------------------------------------------------+------+
-| Checking spooler service up on DCs
+| Checking spooler service is up on DCs
++------+------------------------------------------------+------+
+...
+
+
++------+------------------------------------------------+------+
+| Members of the DCs 'Domain Local' group Administrators
++------+------------------------------------------------+------+
+[+] Digging into 192.168.2.1
+
+ComputerName : 192.168.2.1
+GroupName    : Administrators
+MemberName   : USFUN\Administrator
+SID          : S-1-5-21-3965405831-1015596948-2589850225-500
+IsGroup      : False
+IsDomain     : False
+...
+
+
++------+------------------------------------------------+------+
+| Nested privileged users
++------+------------------------------------------------+------+
+
+GroupDomain             : us.funcorp.local
+GroupName               : Domain Admins
+GroupDistinguishedName  : CN=Domain Admins,CN=Users,DC=us,DC=funcorp,DC=local
+MemberDomain            : us.funcorp.local
+MemberName              : servicesadmin
+MemberDistinguishedName : CN=services admin,CN=Users,DC=us,DC=funcorp,DC=local
+MemberObjectClass       : user
+MemberSID               : S-1-5-21-3965405831-1015596948-2589850225-1122
+
+------+------------------------------------------------+------+
+| Computers with constrained delegation and protocol transition
++------+------------------------------------------------+------+
+...
+
+
++------+------------------------------------------------+------+
+| Users with constrained delegation and protocol transition
++------+------------------------------------------------+------+
+...
+
+
++------+------------------------------------------------+------+
+| Managed Service Accounts with constrained delegation and protocol transition
 +------+------------------------------------------------+------+
 ...
 ```
