@@ -282,7 +282,7 @@ Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4A
 # Find principals (RID >= 1000) with Replicating Directory Changes / Replicating Directory Changes All
 #
 
-Write-Banner -Text "Finding objects with replication permissions"
+Write-Banner -Text "Finding principals with replicating permissions"
 $DefaultNamingContext = $RootDSE.defaultNamingContext
 cd "AD:\$DefaultNamingContext"
 
