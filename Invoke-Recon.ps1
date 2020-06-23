@@ -150,7 +150,7 @@ Get-DomainComputer -Domain $Domain -Server $PDC.IP4Address | Export-CSV -Path "$
 # Privileged accounts
 #
 
-Write-Banner -Text "Nested privileged users"
+Write-Banner -Text "Nested privileged users (RID >= 1000)"
 <#
     From these Privileged Groups:
     "Administrators",        
@@ -168,7 +168,7 @@ $SchemaAdminsGroup = Get-DomainGroup -Domain $Domain -Identity "$DomainSID-518"
 $AccountOperatorsGroup = Get-DomainGroup -Domain $Domain -Identity "S-1-5-32-548"
 $BackupOperatorsGroup = Get-DomainGroup -Domain $Domain -Identity "S-1-5-32-551"
 
-$AdministratorsGroup.objectsid,$DomainAdminsGroup.objectsid,$EnterpriseAdminsGroup.objectsid,$SchemaAdminsGroup.objectsid,$AccountOperatorsGroup.objectsid,$BackupOperatorsGroup.objectsid | Get-DomainGroupMember -Recurse -Domain $Domain -Server $PDC.IP4Address 2> $null | Where-Object {($_.MemberObjectClass -eq "user") -and ($_.MemberSID -ne "$DomainSID-500")} | Sort MemberSID -Unique | ConvertTo-Csv | Tee-Object -File "$EnumDir\privileged_accounts.csv" | ConvertFrom-Csv
+$AdministratorsGroup.objectsid,$DomainAdminsGroup.objectsid,$EnterpriseAdminsGroup.objectsid,$SchemaAdminsGroup.objectsid,$AccountOperatorsGroup.objectsid,$BackupOperatorsGroup.objectsid | Get-DomainGroupMember -Recurse -Domain $Domain -Server $PDC.IP4Address 2> $null | Where-Object {($_.MemberObjectClass -eq "user") -and ([int]$_.MemberSID.split("-")[7] -ge 1000)} | Sort MemberSID -Unique | ConvertTo-Csv | Tee-Object -File "$EnumDir\privileged_accounts.csv" | ConvertFrom-Csv
 
 <#
 foreach($pa in $PrivilegedAccounts){
@@ -279,7 +279,7 @@ Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4A
 # TODO if msDS-AllowedToDelegateTo empty, look for a service having in its msDS-AllowedToActOnBehalfOfOtherIdentity the service delegating
 
 #
-# Find objects with Replicating Directory Changes / Replicating Directory Changes All
+# Find principals (RID >= 1000) with Replicating Directory Changes / Replicating Directory Changes All
 #
 
 Write-Banner -Text "Finding objects with replication permissions"
@@ -298,7 +298,7 @@ if ((Get-Location).Path -eq "$CurDir"){
         $user = New-Object System.Security.Principal.NTAccount($ACL.IdentityReference)
         $SID = $user.Translate([System.Security.Principal.SecurityIdentifier])
         $RID = $SID.ToString().Split("f-")[7]
-        if([int]$RID -gt 1000)
+        if([int]$RID -ge 1000)
         {
             Write-Host "[+] Permission to Sync AD granted to:" $ACL.IdentityReference
             # $ACL.RemoveAccessRule($ACL.Access)
