@@ -104,6 +104,8 @@ MemberSID               : S-1-5-21-3965405831-1015596948-2589850225-1122
 | Finding principals with replicating permissions
 +------+------------------------------------------------+------+
 ...
+
+[more]
 ```
 
 # Todo
