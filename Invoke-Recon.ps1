@@ -18,8 +18,10 @@ param(
 # ----------------------------------------------------------------
 # Main  
 # ----------------------------------------------------------------
+
 function Write-Banner {
     [CmdletBinding()] param(
+        [Parameter(Mandatory=$true)]
         [string]$Text
     )
 
@@ -34,6 +36,7 @@ function Write-Banner {
 
 function Write-BigBanner {
     [CmdletBinding()] param(
+        [Parameter(Mandatory=$true)]
         [string]$Text
     )
 
@@ -51,6 +54,7 @@ function Write-BigBanner {
 #
 # Check Commands are available
 #
+
 if (-Not (((Get-Module -Name "*PowerSploit*") -ne $null -or (Get-Module -Name "*PowerView*") -ne $null) -and (Get-Module -Name "ActiveDirectory") -ne $null)){
     Write-Output "[!] Please import PowerView (dev branch) and ActiveDirectory module"
 }
@@ -80,6 +84,7 @@ If(!(Test-Path $QuickWinsDir))
 # ----------------------------------------------------------------
 # Domain Enumeration  
 # ----------------------------------------------------------------
+
 Write-BigBanner -Text "Starting enumeration of domain $Domain"
 
 Write-Banner -Text "Searching PDC"
@@ -267,6 +272,7 @@ Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4A
 #
 # Find objects with Replicating Directory Changes / Replicating Directory Changes All
 #
+
 Write-Banner -Text "Finding objects with replication permissions"
 $DefaultNamingContext = $RootDSE.defaultNamingContext
 cd "AD:\$DefaultNamingContext"
