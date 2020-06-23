@@ -1,5 +1,5 @@
 <#
-    Dirty script for powershell AD enumeration / quickwins using PowerView, PowerUpSql and Windows ActiveDirectory module
+    Dirty script for powershell AD enumeration / quickwins using PowerView, PowerUpSql and Windows ActiveDirectory modules
     
     Author: @phackt_ul
     License: BSD 3-Clause
@@ -55,8 +55,8 @@ function Write-BigBanner {
 # Check Commands are available
 #
 
-if (-Not (((Get-Module -Name "*PowerSploit*") -ne $null -or (Get-Module -Name "*PowerView*") -ne $null) -and (Get-Module -Name "ActiveDirectory") -ne $null)){
-    Write-Output "[!] Please import PowerView (dev branch) and ActiveDirectory module"
+if (-Not (((Get-Module -Name "*PowerSploit*") -ne $null -or (Get-Module -Name "*PowerView*") -ne $null) -and (Get-Module -Name "ActiveDirectory") -ne $null -and (Get-Module -Name "PowerUpSQL") -ne $null)){
+    throw "[!] Please import PowerView (dev branch) and ActiveDirectory module"
 }
 
 #
@@ -208,6 +208,18 @@ foreach($pa in $PrivilegedAccounts){
 }
 #>
 
+#
+# MSSQL enumeration
+#
+Write-Banner -Text "Enumerate MSSQL instances (looking for SPN service class MSSQL)"
+Get-SQLInstanceDomain -IncludeIP | ConvertTo-Csv | Tee-Object -File "$EnumDir\mssql_instances.csv" | ConvertFrom-Csv
+
+Write-Banner -Text "Are MSSQL instances accessible ?"
+Get-SQLInstanceDomain | Get-SQLConnectionTestThreaded
+
+Write-Banner -Text "Find MSSQL instances versions"
+Get-SQLInstanceDomain | Get-SQLServerInfo | ConvertTo-Csv | Tee-Object -File "$EnumDir\mssql_versions.csv" | ConvertFrom-Csv
+
 # ----------------------------------------------------------------
 # Interesting stuff 
 # ----------------------------------------------------------------
@@ -276,7 +288,17 @@ Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Fi
 Write-Banner -Text "Managed Service Accounts with constrained delegation and protocol transition"
 Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {TrustedToAuthForDelegation -eq $True} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\constrained_t2a4d_msa.csv" | ConvertFrom-Csv
 
-# TODO if msDS-AllowedToDelegateTo empty, look for a service having in its msDS-AllowedToActOnBehalfOfOtherIdentity the service delegating
+#
+# Find services with msDS-AllowedToActOnBehalfOfOtherIdentity
+#
+
+Write-Banner -Text "Finding services with msDS-AllowedToActOnBehalfOfOtherIdentity"
+Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToActOnBehalfOfOtherIdentity -like '*'} -Properties msDS-AllowedToActOnBehalfOfOtherIdentity,servicePrincipalName,Description | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\actonbehalf_computers.csv" | ConvertFrom-Csv
+
+Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToActOnBehalfOfOtherIdentity -like '*'} -Properties msDS-AllowedToActOnBehalfOfOtherIdentity,servicePrincipalName,Description | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\actonbehalf_users.csv" | ConvertFrom-Csv
+
+Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToActOnBehalfOfOtherIdentity -like '*'} -Properties msDS-AllowedToActOnBehalfOfOtherIdentity,servicePrincipalName,Description | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\actonbehalf_msa.csv" | ConvertFrom-Csv
+
 
 #
 # Find principals (RID >= 1000) with Replicating Directory Changes / Replicating Directory Changes All
@@ -307,3 +329,10 @@ if ((Get-Location).Path -eq "$CurDir"){
 
     cd "$CurDir"
 }
+
+#
+# MSSQL audit
+#
+
+Write-Banner -Text "MSSQL instances common credentials bruteforce"
+Get-SQLInstanceDomain | Get-SQLServerLoginDefaultPw | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\mssql_bruteforce_creds.csv" | ConvertFrom-Csv

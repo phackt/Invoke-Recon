@@ -6,8 +6,9 @@ Just because i'm tired to type the same AD / PowerView commands over and over.
 ```
 git clone --recurse-submodules git@github.com:phackt/Invoke-Recon.git
 Import-Module .\PowerSploit\Recon\PowerView.ps1
-Import-Module .\Microsoft.ActiveDirectory.Management.dll
-Import-Module .\ActiveDirectory\ActiveDirectory.psd1
+Import-Module .\PowerUpSQL\PowerUpSQL.psd1
+Import-Module .\ADModule\Microsoft.ActiveDirectory.Management.dll
+Import-Module .\ADModule\ActiveDirectory\ActiveDirectory.psd1
 ```
 
 # Run
@@ -110,5 +111,4 @@ MemberSID               : S-1-5-21-3965405831-1015596948-2589850225-1122
 
 # Todo
 - PowerUpSQL
-- If msDS-AllowedToDelegateTo empty, look for a service having in its msDS-AllowedToActOnBehalfOfOtherIdentity the service delegating
 - Cross the results
