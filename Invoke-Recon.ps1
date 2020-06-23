@@ -90,7 +90,7 @@ Write-Banner -Text "Searching all DCs"
 $AllDCs = Resolve-DnsName -DnsOnly -Type SRV _ldap._tcp.dc._msdcs.$Domain
 Write-Output $AllDCs
 
-Write-Banner -Text "Checking spooler service up on DCs"
+Write-Banner -Text "Checking spooler service is up on DCs"
 foreach($DCip in $AllDCs.IP4Address){ls \\$DCip\pipe\spoolss}
 
 $RootDSE = Get-ADRootDSE -Server $PDC.IP4Address
