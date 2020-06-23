@@ -152,6 +152,7 @@ Get-DomainComputer -Domain $Domain -Server $PDC.IP4Address | Export-CSV -Path "$
 
 Write-Banner -Text "Nested privileged users"
 <#
+    From these Privileged Groups:
     "Administrators",        
     "Domain Admins",       
     "Enterprise Admins",   
@@ -193,7 +194,15 @@ foreach($pa in $PrivilegedAccounts){
 #
 
 #
-# Has SeEnableDelegationPrivilege
+# permissive ACLs on it
+#
+
+#
+# logon sessions
+#
+
+#
+# others ...
 #
 
 }
