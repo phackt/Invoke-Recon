@@ -25,9 +25,9 @@ Import-Module .\ADModule\ActiveDirectory\ActiveDirectory.psd1
 | Searching PDC
 +------+------------------------------------------------+------+
 
-Name                                     Type   TTL   Section    NameTarget                     Priority Weight Port
-----                                     ----   ---   -------    ----------                     -------- ------ ----
-_ldap._tcp.pdc._msdcs.us.funcorp.local   SRV    600   Answer     UFC-DC1.us.funcorp.local       0        100    389
+Name                                     Type   TTL   Section    NameTarget                     
+----                                     ----   ---   -------    ----------                     
+_ldap._tcp.pdc._msdcs.us.funcorp.local   SRV    600   Answer     UFC-DC1.us.funcorp.local       
 
 Name       : UFC-DC1.us.funcorp.local
 QueryType  : A
@@ -38,7 +38,7 @@ IP4Address : 192.168.2.1
 +------+------------------------------------------------+------+
 | Searching all DCs
 +------+------------------------------------------------+------+
-_ldap._tcp.dc._msdcs.us.funcorp.local    SRV    600   Answer     UFC-DC1.us.funcorp.local       0        100    389
+_ldap._tcp.dc._msdcs.us.funcorp.local    SRV    600   Answer     UFC-DC1.us.funcorp.local      
 
 Name       : UFC-DC1.us.funcorp.local
 QueryType  : A
@@ -128,12 +128,18 @@ Instance     : UFC-SQLDev.us.funcorp.local,1433
 Status       : Accessible
 ...
 
-+------+------------------------------------------------+------+                                                                                                                 | Is xp_cmdshell enabled through linked servers of each accessible instances                                                                                                     +------+------------------------------------------------+------+      
++------+------------------------------------------------+------+                                                                                                                 
+| Is xp_cmdshell enabled through linked servers of each accessible instances                                                                                                     +------+------------------------------------------------+------+      
 ...
 
-+------+------------------------------------------------+------+                                                                                                                 | Audit each accessible MSSQL Instances                                                                                                                                           +------+------------------------------------------------+------+                                                                                                                                                                                                                                                                                                    [+] Instance: UFC-SQLDev.us.funcorp.local,1433
++------+------------------------------------------------+------+                                                                                                                 
+| Audit each accessible MSSQL Instances                                                                                                                                           
++------+------------------------------------------------+------+                                                                                                                                                                                                                                                                                                    
+[+] Instance: UFC-SQLDev.us.funcorp.local,1433
 
-ComputerName  : UFC-SQLDev.us.funcorp.local                                                                                                                                       Instance      : UFC-SQLDev.us.funcorp.local,1433                                                                                                                                 Vulnerability : Excessive Privilege - Impersonate Login
+ComputerName  : UFC-SQLDev.us.funcorp.local                                                                                                                                       
+Instance      : UFC-SQLDev.us.funcorp.local,1433                                                                                                                                 
+Vulnerability : Excessive Privilege - Impersonate Login
 Description   : The current SQL Server login can impersonate other logins.  This may allow an authenticated login to gain additional privileges.
 ExploitCmd    : Invoke-SQLAuditPrivImpersonateLogin -Instance UFC-SQLDev.us.funcorp.local,1433 -Exploit
 Details       : xxx can impersonate the sa SYSADMIN login. This test was ran with the xxx login.
