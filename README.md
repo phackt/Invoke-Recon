@@ -110,5 +110,6 @@ MemberSID               : S-1-5-21-3965405831-1015596948-2589850225-1122
 ```
 
 # Todo
-- PowerUpSQL
+- Resolving https://github.com/NetSPI/PowerUpSQL/issues/61 for querying specific domain thanks to PowerUpSQL (any idea?)
+- list OWA / Exchange server (members of Exchange Trusted Subsystem)
 - Cross the results

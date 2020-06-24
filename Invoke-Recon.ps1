@@ -16,7 +16,9 @@ param(
 )
 
 # ----------------------------------------------------------------
+# ----------------------------------------------------------------
 # Main  
+# ----------------------------------------------------------------
 # ----------------------------------------------------------------
 
 function Write-Banner {
@@ -64,9 +66,10 @@ if (-Not (((Get-Module -Name "*PowerSploit*") -ne $null -or (Get-Module -Name "*
 #
 
 $CurDir = (Get-Location).Path
-$EnumDir = "$CurDir\results\$Domain\enumeration"
-$QuickWinsDir = "$CurDir\results\$Domain\quickwins"
-$OutputDirs = @($EnumDir,$QuickWinsDir)
+$EnumDir = "$CurDir\results\$Domain\domain"
+$EnumMSSQLDir = "$CurDir\results\$Domain\mssql"
+$QuickWinsDir = "$EnumDir\quickwins"
+$OutputDirs = @($EnumDir,$EnumMSSQLDir,$QuickWinsDir)
 
 #
 # Creating output dirs
@@ -80,7 +83,9 @@ foreach ($OutputDir in $OutputDirs){
 }
 
 # ----------------------------------------------------------------
+# ----------------------------------------------------------------
 # Domain Enumeration  
+# ----------------------------------------------------------------
 # ----------------------------------------------------------------
 
 Write-BigBanner -Text "Starting enumeration of domain $Domain"
@@ -208,21 +213,12 @@ foreach($pa in $PrivilegedAccounts){
 }
 #>
 
-#
-# MSSQL enumeration
-#
-Write-Banner -Text "Enumerate MSSQL instances (looking for SPN service class MSSQL)"
-Get-SQLInstanceDomain -IncludeIP | ConvertTo-Csv | Tee-Object -File "$EnumDir\mssql_instances.csv" | ConvertFrom-Csv
-
-Write-Banner -Text "Are MSSQL instances accessible ?"
-Get-SQLInstanceDomain | Get-SQLConnectionTestThreaded
-
-Write-Banner -Text "Find MSSQL instances versions"
-Get-SQLInstanceDomain | Get-SQLServerInfo | ConvertTo-Csv | Tee-Object -File "$EnumDir\mssql_versions.csv" | ConvertFrom-Csv
-
+# ----------------------------------------------------------------
 # ----------------------------------------------------------------
 # Interesting stuff 
 # ----------------------------------------------------------------
+# ----------------------------------------------------------------
+
 Write-BigBanner -Text "Looking for interesting stuff"
 
 #
@@ -247,7 +243,7 @@ Get-DomainUser -SPN -Domain $Domain -Server $PDC.IP4Address | ?{$_.memberof -mat
 #
 
 Write-Banner -Text "Users without kerberos preauth"
-Get-DomainUser -PreauthNotRequired -Domain $Domain -Server $PDC.IP4Address | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\users_no_krb_preauth.csv" | ConvertFrom-Csv
+Get-DomainUser -PreauthNotRequired -Domain $Domain -Server $PDC.IP4Address | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\users_without_krb_preauth.csv" | ConvertFrom-Csv
 
 #
 # Kerberos delegation - unconstrained
@@ -330,9 +326,97 @@ if ((Get-Location).Path -eq "$CurDir"){
     cd "$CurDir"
 }
 
+# ----------------------------------------------------------------
+# ----------------------------------------------------------------
+# MSSQL Enumeration  
+# ----------------------------------------------------------------
+# ----------------------------------------------------------------
+
+Write-BigBanner -Text "Starting enumeration of MSSQL instances"
+
+#
+# MSSQL enumeration
+#
+
+Write-Banner -Text "Enumerate MSSQL instances (looking for SPN service class MSSQL)"
+Get-SQLInstanceDomain -IncludeIP | ConvertTo-Csv | Tee-Object -File "$EnumDir\instances.csv" | ConvertFrom-Csv
+
+Write-Banner -Text "Are MSSQL instances accessible ?"
+$Instances = Get-SQLInstanceDomain | Get-SQLConnectionTestThreaded
+$AccessibleInstances = New-Object System.Collections.Generic.HashSet[String]
+foreach($Instance in $Instances){
+    if($Instance.Status -eq "Accessible"){
+
+        #
+        # Avoid doublon - instance vs instance,1433
+        #
+
+        if ($Instance.Instance -notmatch ".*,[0-9]+") 
+        {
+            $AccessibleInstances.Add("$($Instance.Instance),1433") > $null
+        } else {
+            $AccessibleInstances.Add("$($Instance.Instance)") > $null
+        }
+    }
+}
+
+#
+# Create result directory instance
+#
+
+foreach($Instance in $AccessibleInstances){
+    If(!(Test-Path "$EnumMSSQLDir\$Instance"))
+    {
+          New-Item -ItemType Directory -Force -Path "$EnumMSSQLDir\$Instance" > $null
+    }
+}
+
+Write-Output $Instances
+
+Write-Banner -Text "Find MSSQL instances versions"
+foreach($Instance in $AccessibleInstances){ 
+        Write-Output "`r`n[+] Instance: $Instance"
+
+        Get-SQLServerInfo -Instance $Instance | ConvertTo-Csv | Tee-Object -File "$EnumMSSQLDir\$Instance\version.csv" | ConvertFrom-Csv
+}
+
+Write-Banner -Text "Find linked servers from each accessible MSSQL instances"
+foreach($Instance in $AccessibleInstances){ 
+        Write-Output "`r`n[+] Instance: $Instance"
+
+        Get-SQLServerLinkCrawl -Instance $Instance | ConvertTo-Csv | Tee-Object -File "$EnumMSSQLDir\$Instance\linked_servers.csv" | ConvertFrom-Csv
+}
+
+# ----------------------------------------------------------------
+# ----------------------------------------------------------------
+# MSSQL Audit  
+# ----------------------------------------------------------------
+# ----------------------------------------------------------------
+
+Write-BigBanner -Text "Auditing MSSQL instances"
+
 #
 # MSSQL audit
 #
 
 Write-Banner -Text "MSSQL instances common credentials bruteforce"
-Get-SQLInstanceDomain | Get-SQLServerLoginDefaultPw | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\mssql_bruteforce_creds.csv" | ConvertFrom-Csv
+foreach($Instance in $AccessibleInstances){ 
+        Write-Output "`r`n[+] Instance: $Instance"
+
+        Get-SQLServerLoginDefaultPw -Instance $Instance | ConvertTo-Csv | Tee-Object -File "$EnumMSSQLDir\$Instance\bruteforce_creds.csv" | ConvertFrom-Csv
+}
+
+Write-Banner -Text "Is xp_cmdshell enabled through linked servers of each accessible instances"
+foreach($Instance in $AccessibleInstances){ 
+        Write-Output "`r`n[+] Instance: $Instance"
+
+        Get-SQLServerLinkCrawl -Instance $Instance -Query "SELECT CONVERT(INT, ISNULL(value, value_in_use)) AS 'is_XpCmdShell' FROM master.sys.configurations WHERE name like '%cmd%';" |
+ select Version,Instance,Sysadmin,User -ExpandProperty CustomQuery | ConvertTo-Csv | Tee-Object -File "$EnumMSSQLDir\$Instance\linked_servers_xp_cmdshell_enabled.csv" | ConvertFrom-Csv
+}
+
+Write-Banner -Text "Audit each accessible MSSQL Instances"
+foreach($Instance in $AccessibleInstances){ 
+        Write-Output "`r`n[+] Instance: $Instance"
+
+        Invoke-SQLAudit -Instance $Instance | ConvertTo-Csv | Tee-Object -File "$EnumMSSQLDir\$Instance\audit.csv" | ConvertFrom-Csv
+}
