@@ -129,7 +129,8 @@ Status       : Accessible
 ...
 
 +------+------------------------------------------------+------+
-| Is xp_cmdshell enabled through linked servers of each accessible instances                                                                                                     +------+------------------------------------------------+------+
+| Is xp_cmdshell enabled through linked servers of each accessible instances
++------+------------------------------------------------+------+
 ...
 
 +------+------------------------------------------------+------+
