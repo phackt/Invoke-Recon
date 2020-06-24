@@ -414,7 +414,7 @@ foreach($Instance in $AccessibleInstances){
  select Version,Instance,Sysadmin,User -ExpandProperty CustomQuery | ConvertTo-Csv | Tee-Object -File "$EnumMSSQLDir\$Instance\linked_servers_xp_cmdshell_enabled.csv" | ConvertFrom-Csv
 }
 
-Write-Banner -Text "Audit each accessible MSSQL Instances"
+Write-Banner -Text "Auditing each accessible MSSQL Instances"
 foreach($Instance in $AccessibleInstances){ 
         Write-Output "`r`n[+] Instance: $Instance"
 
