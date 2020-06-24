@@ -136,6 +136,7 @@ Status       : Accessible
 +------+------------------------------------------------+------+
 | Audit each accessible MSSQL Instances
 +------+------------------------------------------------+------+
+
 [+] Instance: UFC-SQLDev.us.funcorp.local,1433
 
 ComputerName  : UFC-SQLDev.us.funcorp.local
