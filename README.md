@@ -1,15 +1,9 @@
 # Invoke-Recon
 Powershell script for the very first domain enumeration.  
-<<<<<<< HEAD
-Just because i'm tired of typing the same AD / PowerView commands over and over.
-
-# First import the right modules
-=======
 Just because i'm tired to type the same AD / PowerView commands over and over.  
   
 # Prerequisites  
 You may want to exclude your tools directory from Defender (if you clone submodules for examples):  
->>>>>>> dev
 ```
 Add-MpPreference -ExclusionPath "C:\Users\bleponge\Documents\myrepos"
 Get-MpPreference | Select -Expand ExclusionPath
