@@ -1,3 +1,7 @@
+<#
+    Modified version of https://gist.githubusercontent.com/IMJLA/86fc6c5ad8c34d455377698e7a871094/raw/25755c8643f1921031a37e34dde5b610d5c8d640/GadgetExchange.psm1
+    @credits to https://github.com/IMJLA
+#>
 Function ConvertTo-ExchangeRole{
     <#
         .SYNOPSIS
@@ -132,19 +136,21 @@ Function Get-ADExchangeServer{
     $Splat = @{
         LDAPFilter = "(|(objectClass=msExchExchangeServer)(objectClass=msExchClientAccessArray))"
         SearchBase = $context
-        Properties = 'objectClass','msExchCurrentServerRoles','networkAddress','versionNumber'
+        Properties = 'objectCategory','objectClass','msExchCurrentServerRoles','networkAddress','versionNumber'
     }
     $Results = Get-ADObject @Splat
     ForEach ($ExchServer in $Results) {
         $FQDN = ($ExchServer.networkAddress | Where-Object -FilterScript {$_ -like "ncacn_ip_tcp*"}).Split(":")[1]
         $Roles = ConvertTo-ExchangeRole $ExchServer.msExchCurrentServerRoles
         $Class = $ExchServer.objectClass
+        $Category = $ExchServer.objectCategory
         $ExchVersion = ConvertTo-ExchangeVersion -Version $ExchServer.versionNumber
 
         $Object = New-Object PSObject -Property @{
             FQDN = $FQDN
-            Roles = $Roles
-            Class = $Class
+            Roles = [string]$Roles
+            Class = [string]$Class
+            Category = $Category
             Version = "$($ExchVersion.MajorVersion).$($ExchVersion.MinorVersion).$($ExchVersion.Build)"
             # MajorVersion = $ExchVersion.MajorVersion
             # MinorVersion = $ExchVersion.MinorVersion

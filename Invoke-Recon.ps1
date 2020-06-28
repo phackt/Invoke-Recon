@@ -237,10 +237,8 @@ foreach($pa in $PrivilegedAccounts){
 #
 
 Write-Banner -Text "Looking for Exchange servers"
-Get-ADExchangeServer -ConfigurationNamingContext $RootDSE.configurationNamingContext
-
-# TODO - fix ConvertTo-CSV
-# Get-ADExchangeServer -ConfigurationNamingContext $RootDSE.configurationNamingContext | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumDir\exchange_servers.csv" | ConvertFrom-Csv
+# Only keeping for now CN=ms-Exch-Exchange-Server
+Get-ADExchangeServer -ConfigurationNamingContext $RootDSE.configurationNamingContext | Where-Object {$_.Category -like "CN=ms-Exch-Exchange-Server*"} | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumDir\exchange_servers.csv" | ConvertFrom-Csv
 
 Write-Banner -Text "Looking for users having a mailbox"
 Write-Output "[saving into ""$EnumDir\users_with_mailbox.csv""]"
