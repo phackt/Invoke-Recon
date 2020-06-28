@@ -9,6 +9,7 @@ Add-MpPreference -ExclusionPath "C:\Users\bleponge\Documents\tools"
 Get-MpPreference | Select -Expand ExclusionPath
 ```  
   
+If you don't already have imported the following modules for you enumeration:    
 ```
 git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git
 Import-Module .\modules\PowerSploit\Recon\PowerView.ps1
@@ -17,8 +18,6 @@ Import-Module .\modules\ADModule\Microsoft.ActiveDirectory.Management.dll
 Import-Module .\modules\ADModule\ActiveDirectory\ActiveDirectory.psd1
 ```  
   
-Or if you already have these 'must-have' repositories just import the rights modules has previously mentionned.  
-
 # Run
 ```
 .\Invoke-Recon.ps1 -Domain us.funcorp.local | Tee-Object -FilePath .\invoke-recon.txt
