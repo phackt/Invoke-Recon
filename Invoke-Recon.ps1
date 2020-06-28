@@ -116,7 +116,7 @@ Write-Output $AllDCs
 
 Write-Banner -Text "Checking spooler service is up on DCs"
 foreach($DCip in $AllDCs.IP4Address){
-    Write-Output "[+] Digging into $DCip"
+    Write-Output "[+] ls \\$DCip\pipe\spoolss"
     ls \\$DCip\pipe\spoolss
 }
 
