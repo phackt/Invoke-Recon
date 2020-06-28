@@ -1,16 +1,29 @@
 # Invoke-Recon
 Powershell script for the very first domain enumeration.  
+<<<<<<< HEAD
 Just because i'm tired of typing the same AD / PowerView commands over and over.
 
 # First import the right modules
+=======
+Just because i'm tired to type the same AD / PowerView commands over and over.  
+  
+# Prerequisites  
+You may want to exclude your tools directory from Defender (if you clone submodules for examples):  
+>>>>>>> dev
 ```
-git clone --recurse-submodules git@github.com:phackt/Invoke-Recon.git
-Import-Module .\PowerSploit\Recon\PowerView.ps1
-Import-Module .\PowerUpSQL\PowerUpSQL.psd1
-Import-Module .\ADModule\Microsoft.ActiveDirectory.Management.dll
-Import-Module .\ADModule\ActiveDirectory\ActiveDirectory.psd1
+Add-MpPreference -ExclusionPath "C:\Users\bleponge\Documents\myrepos"
+Get-MpPreference | Select -Expand ExclusionPath
+```  
+  
+If you don't already have imported the following modules for you enumeration:    
 ```
-
+git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git
+Import-Module .\modules\PowerSploit\Recon\PowerView.ps1
+Import-Module .\modules\PowerUpSQL\PowerUpSQL.psd1
+Import-Module .\modules\ADModule\Microsoft.ActiveDirectory.Management.dll
+Import-Module .\modules\ADModule\ActiveDirectory\ActiveDirectory.psd1
+```  
+  
 # Run
 ```
 .\Invoke-Recon.ps1 -Domain us.funcorp.local | Tee-Object -FilePath .\invoke-recon.txt
@@ -25,31 +38,36 @@ Import-Module .\ADModule\ActiveDirectory\ActiveDirectory.psd1
 | Searching PDC
 +------+------------------------------------------------+------+
 
-Name                                     Type   TTL   Section    NameTarget
-----                                     ----   ---   -------    ----------
-_ldap._tcp.pdc._msdcs.us.funcorp.local   SRV    600   Answer     UFC-DC1.us.funcorp.local
+Name                                     Type   TTL   Section    NameTarget                     Priority Weight Port
+----                                     ----   ---   -------    ----------                     -------- ------ ----
+_ldap._tcp.pdc._msdcs.us.funcorp.local   SRV    600   Answer     UFC-DC1.us.funcorp.local       0        100    389
 
 Name       : UFC-DC1.us.funcorp.local
 QueryType  : A
 TTL        : 600
 Section    : Additional
 IP4Address : 192.168.2.1
+
+
 
 +------+------------------------------------------------+------+
 | Searching all DCs
 +------+------------------------------------------------+------+
-_ldap._tcp.dc._msdcs.us.funcorp.local    SRV    600   Answer     UFC-DC1.us.funcorp.local
+_ldap._tcp.dc._msdcs.us.funcorp.local    SRV    600   Answer     UFC-DC1.us.funcorp.local       0        100    389
 
 Name       : UFC-DC1.us.funcorp.local
 QueryType  : A
 TTL        : 600
 Section    : Additional
 IP4Address : 192.168.2.1
+
+
 
 +------+------------------------------------------------+------+
 | Checking spooler service is up on DCs
 +------+------------------------------------------------+------+
 ...
+
 
 +------+------------------------------------------------+------+
 | Members of the DCs 'Domain Local' group Administrators
@@ -63,6 +81,7 @@ SID          : S-1-5-21-3965405831-1015596948-2589850225-500
 IsGroup      : False
 IsDomain     : False
 ...
+
 
 +------+------------------------------------------------+------+
 | Nested privileged users (RID >= 1000)
@@ -82,69 +101,22 @@ MemberSID               : S-1-5-21-3965405831-1015596948-2589850225-1122
 +------+------------------------------------------------+------+
 ...
 
+
 +------+------------------------------------------------+------+
 | Users with constrained delegation and protocol transition
 +------+------------------------------------------------+------+
 ...
+
 
 +------+------------------------------------------------+------+
 | Managed Service Accounts with constrained delegation and protocol transition
 +------+------------------------------------------------+------+
 ...
 
+
 +------+------------------------------------------------+------+
 | Finding principals with replicating permissions
 +------+------------------------------------------------+------+
-...
-
-################################################################
-################################################################
-| Starting enumeration of MSSQL instances
-################################################################
-################################################################
-
-+------+------------------------------------------------+------+
-| Enumerate MSSQL instances (looking for SPN service class MSSQL)
-+------+------------------------------------------------+------+
-
-ComputerName     : ufc-db1.us.funcorp.local
-Instance         : MSSQLService/ufc-db1.us.funcorp.local
-DomainAccountSid : 15000005210001357491236148199136601132509315497400
-DomainAccount    : db1user
-DomainAccountCn  : db1user
-Service          : MSSQLService
-Spn              : MSSQLService/ufc-db1.us.funcorp.local
-LastLogon        : 12/31/1600 4:00 PM
-Description      :
-IPAddress        : 192.168.8.25
-...
-
-+------+------------------------------------------------+------+
-| Are MSSQL instances accessible ?
-+------+------------------------------------------------+------+
-
-ComputerName : UFC-SQLDev.us.funcorp.local
-Instance     : UFC-SQLDev.us.funcorp.local,1433
-Status       : Accessible
-...
-
-+------+------------------------------------------------+------+
-| Is xp_cmdshell enabled through linked servers of each accessible instances
-+------+------------------------------------------------+------+
-...
-
-+------+------------------------------------------------+------+
-| Auditing each accessible MSSQL Instances
-+------+------------------------------------------------+------+
-
-[+] Instance: UFC-SQLDev.us.funcorp.local,1433
-
-ComputerName  : UFC-SQLDev.us.funcorp.local
-Instance      : UFC-SQLDev.us.funcorp.local,1433
-Vulnerability : Excessive Privilege - Impersonate Login
-Description   : The current SQL Server login can impersonate other logins.  This may allow an authenticated login to gain additional privileges.
-ExploitCmd    : Invoke-SQLAuditPrivImpersonateLogin -Instance UFC-SQLDev.us.funcorp.local,1433 -Exploit
-Details       : xxx can impersonate the sa SYSADMIN login. This test was ran with the xxx login.
 ...
 
 [more]
@@ -152,5 +124,6 @@ Details       : xxx can impersonate the sa SYSADMIN login. This test was ran wit
 
 # Todo
 - Resolving https://github.com/NetSPI/PowerUpSQL/issues/61 for querying specific domain thanks to PowerUpSQL (any idea?)
-- list OWA / Exchange server (members of Exchange Trusted Subsystem)
+- list OWA / Exchange server
+- Finding all others common quick wins (privexchange, cve-2020-0688, ...)
 - Cross the results

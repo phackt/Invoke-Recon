@@ -15,6 +15,15 @@ param(
   [String]$Domain
 )
 
+<#
+    Importing custom modules
+#>
+Import-Module .\modules\GadgetExchange.psm1
+
+if ((Get-Module -Name "GadgetExchange") -eq $null){
+    Write-Error "[!] .\modules\GadgetExchange.psm1 not found, Exchange Servers enumeration will not be processed"
+}
+
 # ----------------------------------------------------------------
 # ----------------------------------------------------------------
 # Main  
@@ -58,8 +67,15 @@ function Write-BigBanner {
 #
 
 if (-Not (((Get-Module -Name "*PowerSploit*") -ne $null -or (Get-Module -Name "*PowerView*") -ne $null) -and (Get-Module -Name "ActiveDirectory") -ne $null -and (Get-Module -Name "PowerUpSQL") -ne $null)){
-    throw "[!] Please import PowerView (dev branch) and ActiveDirectory module"
+    throw "[!] Please import the following modules: PowerView (dev branch), ActiveDirectory (ADModule) and PowerUpSQL"
 }
+
+#
+# Init Aliases
+#
+
+# New-Alias -Name Export-CSV -Value "Export-CSV -NoTypeInformation -NoTypeInformation" -Scope Process
+# New-Alias -Name ConvertTo-Csv -Value "ConvertTo-Csv -NoTypeInformation -NoTypeInformation" -Scope
 
 #
 # Init variables
@@ -90,16 +106,19 @@ foreach ($OutputDir in $OutputDirs){
 
 Write-BigBanner -Text "Starting enumeration of domain $Domain"
 
-Write-Banner -Text "Searching PDC"
+Write-Banner -Text "Looking for PDC"
 $PDC = Resolve-DnsName -DnsOnly -Type SRV _ldap._tcp.pdc._msdcs.$Domain
 Write-Output $PDC
 
-Write-Banner -Text "Searching all DCs"
+Write-Banner -Text "Looking for all DCs"
 $AllDCs = Resolve-DnsName -DnsOnly -Type SRV _ldap._tcp.dc._msdcs.$Domain
 Write-Output $AllDCs
 
 Write-Banner -Text "Checking spooler service is up on DCs"
-foreach($DCip in $AllDCs.IP4Address){ls \\$DCip\pipe\spoolss}
+foreach($DCip in $AllDCs.IP4Address){
+    Write-Output "[+] Digging into $DCip"
+    ls \\$DCip\pipe\spoolss
+}
 
 $RootDSE = Get-ADRootDSE -Server $PDC.IP4Address
 
@@ -111,7 +130,7 @@ if ($RootDSE -eq $null){
 Write-Banner -Text "Members of the DCs 'Domain Local' group Administrators"
 foreach($DCip in $AllDCs.IP4Address){
     Write-Output "[+] Digging into $DCip"
-    Get-NetLocalGroupMember -ComputerName $DC.IP4Address -GroupName "Administrators"
+    Get-NetLocalGroupMember -ComputerName $DCip -GroupName "Administrators"
 }
 
 Write-Banner -Text "Get-DomainSID"
@@ -141,15 +160,15 @@ Get-ForestTrust -Forest $Forest.Name
 
 Write-Banner -Text "Get-DomainUser"
 Write-Output "[saving into ""$EnumDir\users.csv""]"
-Get-DomainUser -Domain $Domain -Server $PDC.IP4Address | Export-CSV -Path "$EnumDir\users.csv"
+Get-DomainUser -Domain $Domain -Server $PDC.IP4Address | Export-CSV -NoTypeInformation -Path "$EnumDir\users.csv"
 
 Write-Banner -Text "Get-DomainGroup"
 Write-Output "[saving into ""$EnumDir\groups.csv""]"
-Get-DomainGroup -Domain $Domain -Server $PDC.IP4Address | Export-CSV -Path "$EnumDir\groups.csv"
+Get-DomainGroup -Domain $Domain -Server $PDC.IP4Address | Export-CSV -NoTypeInformation -Path "$EnumDir\groups.csv"
 
 Write-Banner -Text "Get-DomainComputer"
 Write-Output "[saving into ""$EnumDir\computers.csv""]"
-Get-DomainComputer -Domain $Domain -Server $PDC.IP4Address | Export-CSV -Path "$EnumDir\computers.csv"
+Get-DomainComputer -Domain $Domain -Server $PDC.IP4Address | Export-CSV -NoTypeInformation -Path "$EnumDir\computers.csv"
 
 #
 # Privileged accounts
@@ -173,7 +192,7 @@ $SchemaAdminsGroup = Get-DomainGroup -Domain $Domain -Identity "$DomainSID-518"
 $AccountOperatorsGroup = Get-DomainGroup -Domain $Domain -Identity "S-1-5-32-548"
 $BackupOperatorsGroup = Get-DomainGroup -Domain $Domain -Identity "S-1-5-32-551"
 
-$AdministratorsGroup.objectsid,$DomainAdminsGroup.objectsid,$EnterpriseAdminsGroup.objectsid,$SchemaAdminsGroup.objectsid,$AccountOperatorsGroup.objectsid,$BackupOperatorsGroup.objectsid | Get-DomainGroupMember -Recurse -Domain $Domain -Server $PDC.IP4Address 2> $null | Where-Object {($_.MemberObjectClass -eq "user") -and ([int]$_.MemberSID.split("-")[7] -ge 1000)} | Sort MemberSID -Unique | ConvertTo-Csv | Tee-Object -File "$EnumDir\privileged_accounts.csv" | ConvertFrom-Csv
+$AdministratorsGroup.objectsid,$DomainAdminsGroup.objectsid,$EnterpriseAdminsGroup.objectsid,$SchemaAdminsGroup.objectsid,$AccountOperatorsGroup.objectsid,$BackupOperatorsGroup.objectsid | Get-DomainGroupMember -Recurse -Domain $Domain -Server $PDC.IP4Address 2> $null | Where-Object {($_.MemberObjectClass -eq "user") -and ([int]$_.MemberSID.split("-")[7] -ge 1000)} | Sort MemberSID -Unique | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumDir\privileged_accounts.csv" | ConvertFrom-Csv
 
 <#
 foreach($pa in $PrivilegedAccounts){
@@ -213,6 +232,21 @@ foreach($pa in $PrivilegedAccounts){
 }
 #>
 
+#
+# Exchange servers
+#
+
+Write-Banner -Text "Looking for Exchange servers"
+Get-ADExchangeServer -ConfigurationNamingContext $RootDSE.configurationNamingContext
+
+# TODO - fix ConvertTo-CSV
+# Get-ADExchangeServer -ConfigurationNamingContext $RootDSE.configurationNamingContext | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumDir\exchange_servers.csv" | ConvertFrom-Csv
+
+Write-Banner -Text "Looking for users having a mailbox"
+Write-Output "[saving into ""$EnumDir\users_with_mailbox.csv""]"
+Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -LDAPFilter "(msExchMailboxGuid=*)" | Export-CSV -NoTypeInformation -Path "$EnumDir\users_with_mailbox.csv"
+
+
 # ----------------------------------------------------------------
 # ----------------------------------------------------------------
 # Interesting stuff 
@@ -226,74 +260,74 @@ Write-BigBanner -Text "Looking for interesting stuff"
 #
 
 Write-Banner -Text "End-of-support Operating Systems (MS17-010)"
-Get-DomainComputer -Domain $Domain -Server $PDC.IP4Address |  Where-Object {($_.OperatingSystem -like "*XP*") -or ($_.OperatingSystem -like "*Vista*") -or ($_.OperatingSystem -like "*2003*") -or ($_.OperatingSystem -like "*Windows 7*") -or ($_.OperatingSystem -like "*Windows 8*")} | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\deprecated_os.csv" | ConvertFrom-Csv 
+Get-DomainComputer -Domain $Domain -Server $PDC.IP4Address |  Where-Object {($_.OperatingSystem -like "*XP*") -or ($_.OperatingSystem -like "*Vista*") -or ($_.OperatingSystem -like "*2003*") -or ($_.OperatingSystem -like "*Windows 7*") -or ($_.OperatingSystem -like "*Windows 8*")} | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\deprecated_os.csv" | ConvertFrom-Csv 
 
 #
 # Kerberoast
 #
 
 Write-Banner -Text "All kerberoastable users"
-Get-DomainUser -SPN -Domain $Domain -Server $PDC.IP4Address | Where-Object {$_.samaccountname -ne 'krbtgt'} | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\kerberoastable_all.csv" | ConvertFrom-Csv
+Get-DomainUser -SPN -Domain $Domain -Server $PDC.IP4Address | Where-Object {$_.samaccountname -ne 'krbtgt'} | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\kerberoastable_all.csv" | ConvertFrom-Csv
 
 Write-Banner -Text "Kerberoastable users members of DA"
-Get-DomainUser -SPN -Domain $Domain -Server $PDC.IP4Address | ?{$_.memberof -match $DomainAdminsGroup.samaccountname -and $_.samaccountname -ne 'krbtgt'} | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\kerberoastable_da.csv" | ConvertFrom-Csv
+Get-DomainUser -SPN -Domain $Domain -Server $PDC.IP4Address | ?{$_.memberof -match $DomainAdminsGroup.samaccountname -and $_.samaccountname -ne 'krbtgt'} | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\kerberoastable_da.csv" | ConvertFrom-Csv
 
 #
 # AS_REP Roasting - no kerberos preauth
 #
 
 Write-Banner -Text "Users without kerberos preauth"
-Get-DomainUser -PreauthNotRequired -Domain $Domain -Server $PDC.IP4Address | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\users_without_krb_preauth.csv" | ConvertFrom-Csv
+Get-DomainUser -PreauthNotRequired -Domain $Domain -Server $PDC.IP4Address | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\users_without_krb_preauth.csv" | ConvertFrom-Csv
 
 #
 # Kerberos delegation - unconstrained
 #
 
 Write-Banner -Text "Computers with unconstrained delegation - skip DCs"
-Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {(TrustedForDelegation -eq $True) -AND (PrimaryGroupID -eq 515)} -Properties TrustedForDelegation,servicePrincipalName,Description | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\unconstrained_computers.csv" | ConvertFrom-Csv
+Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {(TrustedForDelegation -eq $True) -AND (PrimaryGroupID -eq 515)} -Properties TrustedForDelegation,servicePrincipalName,Description | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\unconstrained_computers.csv" | ConvertFrom-Csv
 
 Write-Banner -Text "Users with unconstrained delegation"
-Get-ADUSer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {(TrustedForDelegation -eq $True)} -Properties TrustedForDelegation,servicePrincipalName,Description | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\unconstrained_users.csv" | ConvertFrom-Csv
+Get-ADUSer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {(TrustedForDelegation -eq $True)} -Properties TrustedForDelegation,servicePrincipalName,Description | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\unconstrained_users.csv" | ConvertFrom-Csv
 
 Write-Banner -Text "Managed Service Accounts with unconstrained delegation"
-Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {(TrustedForDelegation -eq $True)} -Properties TrustedForDelegation,servicePrincipalName,Description | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\unconstrained_msa.csv" | ConvertFrom-Csv
+Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {(TrustedForDelegation -eq $True)} -Properties TrustedForDelegation,servicePrincipalName,Description | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\unconstrained_msa.csv" | ConvertFrom-Csv
 
 #
 # Kerberos delegation - constrained
 #
 
 Write-Banner -Text "Computers with constrained delegation"
-Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToDelegateTo -like '*'} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\constrained_computers.csv" | ConvertFrom-Csv
+Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToDelegateTo -like '*'} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\constrained_computers.csv" | ConvertFrom-Csv
 
 Write-Banner -Text "Users with constrained delegation"
-Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToDelegateTo -like '*'} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\constrained_users.csv" | ConvertFrom-Csv
+Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToDelegateTo -like '*'} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\constrained_users.csv" | ConvertFrom-Csv
 
 Write-Banner -Text "Managed Service Accounts with constrained delegation"
-Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToDelegateTo -like '*'} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\constrained_msa.csv" | ConvertFrom-Csv
+Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToDelegateTo -like '*'} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\constrained_msa.csv" | ConvertFrom-Csv
 
 #
 # Kerberos delegation - constrained with protocol transition
 #
 
 Write-Banner -Text "Computers with constrained delegation and protocol transition"
-Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {TrustedToAuthForDelegation -eq $True} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\constrained_t2a4d_computers.csv" | ConvertFrom-Csv
+Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {TrustedToAuthForDelegation -eq $True} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\constrained_t2a4d_computers.csv" | ConvertFrom-Csv
 
 Write-Banner -Text "Users with constrained delegation and protocol transition"
-Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {TrustedToAuthForDelegation -eq $True} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\constrained_t2a4d_users.csv" | ConvertFrom-Csv
+Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {TrustedToAuthForDelegation -eq $True} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\constrained_t2a4d_users.csv" | ConvertFrom-Csv
 
 Write-Banner -Text "Managed Service Accounts with constrained delegation and protocol transition"
-Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {TrustedToAuthForDelegation -eq $True} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\constrained_t2a4d_msa.csv" | ConvertFrom-Csv
+Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {TrustedToAuthForDelegation -eq $True} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\constrained_t2a4d_msa.csv" | ConvertFrom-Csv
 
 #
 # Find services with msDS-AllowedToActOnBehalfOfOtherIdentity
 #
 
 Write-Banner -Text "Finding services with msDS-AllowedToActOnBehalfOfOtherIdentity"
-Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToActOnBehalfOfOtherIdentity -like '*'} -Properties msDS-AllowedToActOnBehalfOfOtherIdentity,servicePrincipalName,Description | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\actonbehalf_computers.csv" | ConvertFrom-Csv
+Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToActOnBehalfOfOtherIdentity -like '*'} -Properties msDS-AllowedToActOnBehalfOfOtherIdentity,servicePrincipalName,Description | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\actonbehalf_computers.csv" | ConvertFrom-Csv
 
-Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToActOnBehalfOfOtherIdentity -like '*'} -Properties msDS-AllowedToActOnBehalfOfOtherIdentity,servicePrincipalName,Description | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\actonbehalf_users.csv" | ConvertFrom-Csv
+Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToActOnBehalfOfOtherIdentity -like '*'} -Properties msDS-AllowedToActOnBehalfOfOtherIdentity,servicePrincipalName,Description | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\actonbehalf_users.csv" | ConvertFrom-Csv
 
-Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToActOnBehalfOfOtherIdentity -like '*'} -Properties msDS-AllowedToActOnBehalfOfOtherIdentity,servicePrincipalName,Description | ConvertTo-Csv | Tee-Object -File "$QuickWinsDir\actonbehalf_msa.csv" | ConvertFrom-Csv
+Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToActOnBehalfOfOtherIdentity -like '*'} -Properties msDS-AllowedToActOnBehalfOfOtherIdentity,servicePrincipalName,Description | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\actonbehalf_msa.csv" | ConvertFrom-Csv
 
 
 #
@@ -339,7 +373,7 @@ Write-BigBanner -Text "Starting enumeration of MSSQL instances"
 #
 
 Write-Banner -Text "Enumerate MSSQL instances (looking for SPN service class MSSQL)"
-Get-SQLInstanceDomain -IncludeIP | ConvertTo-Csv | Tee-Object -File "$EnumDir\instances.csv" | ConvertFrom-Csv
+Get-SQLInstanceDomain -IncludeIP | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumDir\instances.csv" | ConvertFrom-Csv
 
 Write-Banner -Text "Are MSSQL instances accessible ?"
 $Instances = Get-SQLInstanceDomain | Get-SQLConnectionTestThreaded
@@ -377,14 +411,14 @@ Write-Banner -Text "Find MSSQL instances versions"
 foreach($Instance in $AccessibleInstances){ 
         Write-Output "`r`n[+] Instance: $Instance"
 
-        Get-SQLServerInfo -Instance $Instance | ConvertTo-Csv | Tee-Object -File "$EnumMSSQLDir\$Instance\version.csv" | ConvertFrom-Csv
+        Get-SQLServerInfo -Instance $Instance | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumMSSQLDir\$Instance\version.csv" | ConvertFrom-Csv
 }
 
 Write-Banner -Text "Find linked servers from each accessible MSSQL instances"
 foreach($Instance in $AccessibleInstances){ 
         Write-Output "`r`n[+] Instance: $Instance"
 
-        Get-SQLServerLinkCrawl -Instance $Instance | ConvertTo-Csv | Tee-Object -File "$EnumMSSQLDir\$Instance\linked_servers.csv" | ConvertFrom-Csv
+        Get-SQLServerLinkCrawl -Instance $Instance | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumMSSQLDir\$Instance\linked_servers.csv" | ConvertFrom-Csv
 }
 
 # ----------------------------------------------------------------
@@ -403,7 +437,7 @@ Write-Banner -Text "MSSQL instances common credentials bruteforce"
 foreach($Instance in $AccessibleInstances){ 
         Write-Output "`r`n[+] Instance: $Instance"
 
-        Get-SQLServerLoginDefaultPw -Instance $Instance | ConvertTo-Csv | Tee-Object -File "$EnumMSSQLDir\$Instance\bruteforce_creds.csv" | ConvertFrom-Csv
+        Get-SQLServerLoginDefaultPw -Instance $Instance | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumMSSQLDir\$Instance\bruteforce_creds.csv" | ConvertFrom-Csv
 }
 
 Write-Banner -Text "Is xp_cmdshell enabled through linked servers of each accessible instances"
@@ -411,12 +445,12 @@ foreach($Instance in $AccessibleInstances){
         Write-Output "`r`n[+] Instance: $Instance"
 
         Get-SQLServerLinkCrawl -Instance $Instance -Query "SELECT CONVERT(INT, ISNULL(value, value_in_use)) AS 'is_XpCmdShell' FROM master.sys.configurations WHERE name like '%cmd%';" |
- select Version,Instance,Sysadmin,User -ExpandProperty CustomQuery | ConvertTo-Csv | Tee-Object -File "$EnumMSSQLDir\$Instance\linked_servers_xp_cmdshell_enabled.csv" | ConvertFrom-Csv
+ select Version,Instance,Sysadmin,User -ExpandProperty CustomQuery | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumMSSQLDir\$Instance\linked_servers_xp_cmdshell_enabled.csv" | ConvertFrom-Csv
 }
 
 Write-Banner -Text "Auditing each accessible MSSQL Instances"
 foreach($Instance in $AccessibleInstances){ 
         Write-Output "`r`n[+] Instance: $Instance"
 
-        Invoke-SQLAudit -Instance $Instance | ConvertTo-Csv | Tee-Object -File "$EnumMSSQLDir\$Instance\audit.csv" | ConvertFrom-Csv
+        Invoke-SQLAudit -Instance $Instance | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumMSSQLDir\$Instance\audit.csv" | ConvertFrom-Csv
 }
