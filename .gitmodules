@@ -1,0 +1,10 @@
+[submodule "modules/PowerSploit"]
+	path = modules/PowerSploit
+	url = https://github.com/PowerShellMafia/PowerSploit.git
+	branch = dev
+[submodule "modules/ADModule"]
+	path = modules/ADModule
+	url = https://github.com/samratashok/ADModule
+[submodule "modules/PowerUpSQL"]
+	path = modules/PowerUpSQL
+	url = https://github.com/NetSPI/PowerUpSQL.git
