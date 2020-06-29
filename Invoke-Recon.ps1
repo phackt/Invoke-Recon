@@ -238,7 +238,7 @@ foreach($pa in $PrivilegedAccounts){
 
 Write-Banner -Text "Looking for Exchange servers"
 # Only keeping for now CN=ms-Exch-Exchange-Server
-$ExchangeServers = Get-ADExchangeServer -ConfigurationNamingContext $RootDSE.configurationNamingContext | Where-Object {$_.Category -like "CN=ms-Exch-Exchange-Server*"} | Select-Object Version,FQDN,Roles,Class
+$ExchangeServers = Get-ADExchangeServer -ConfigurationNamingContext $RootDSE.configurationNamingContext -Server $PDC.IP4Address | Where-Object {$_.Category -like "CN=ms-Exch-Exchange-Server*"} | Select-Object Version,FQDN,Roles,Class
 Write-Output $ExchangeServers | Export-CSV -NoTypeInformation -Path "$EnumDir\exchange_servers.csv"
 
 # Looking for [PrivExchange, CVE-2020-0688]

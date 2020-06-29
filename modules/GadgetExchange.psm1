@@ -128,12 +128,16 @@ Function Get-ADExchangeServer{
     [CmdletBinding()]
     param(
       [Parameter(Mandatory=$true)]
-      [String]$ConfigurationNamingContext
+      [String]$ConfigurationNamingContext,
+
+      [Parameter(Mandatory=$true)]
+      [String]$Server
     )
 
     # Import-Module ActiveDirectory -Cmdlet Get-ADObject -Verbose:$false
     [String]$context = $ConfigurationNamingContext
     $Splat = @{
+        Server = $Server
         LDAPFilter = "(|(objectClass=msExchExchangeServer)(objectClass=msExchClientAccessArray))"
         SearchBase = $context
         Properties = 'objectCategory','objectClass','msExchCurrentServerRoles','networkAddress','versionNumber'
