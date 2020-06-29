@@ -238,7 +238,80 @@ foreach($pa in $PrivilegedAccounts){
 
 Write-Banner -Text "Looking for Exchange servers"
 # Only keeping for now CN=ms-Exch-Exchange-Server
-Get-ADExchangeServer -ConfigurationNamingContext $RootDSE.configurationNamingContext | Where-Object {$_.Category -like "CN=ms-Exch-Exchange-Server*"} | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumDir\exchange_servers.csv" | ConvertFrom-Csv
+$ExchangeServers = Get-ADExchangeServer -ConfigurationNamingContext $RootDSE.configurationNamingContext | Where-Object {$_.Category -like "CN=ms-Exch-Exchange-Server*"} | Select-Object Version,FQDN,Roles,Class
+Write-Output $ExchangeServers | Export-CSV -NoTypeInformation -Path "$EnumDir\exchange_servers.csv"
+
+# Looking for [PrivExchange, CVE-2020-0688]
+# https://portal.msrc.microsoft.com/en-US/security-guidance/advisory/ADV190007
+# https://portal.msrc.microsoft.com/en-US/security-guidance/advisory/CVE-2020-0688
+# https://docs.microsoft.com/fr-fr/exchange/new-features/build-numbers-and-release-dates?view=exchserver-2019
+
+foreach($ExchangeServer in $ExchangeServers){
+
+    ##################################################################################
+    #PrivExchange
+    $PrivExchange = $true
+    switch($ExchangeServer.MajorVersion)
+    {
+        "15" {
+                switch($ExchangeServer.MinorVersion)
+                {
+                    "2" {if([int]$ExchangeServer.Build -ge 330){$CVE20200688 = $false};Break}
+                    "1" {if([int]$ExchangeServer.Build -ge 1713){$CVE20200688 = $false};Break}
+                    "0" {if([int]$ExchangeServer.Build -ge 1473){$CVE20200688 = $false};Break}
+                }
+                Break
+             }
+        "14" {
+                switch($ExchangeServer.MinorVersion)
+                {
+                    "3" {if([int]$ExchangeServer.Build -ge 442){$CVE20200688 = $false};Break}
+                }
+                Break
+             }
+    }
+
+    $ExchangeServer | Add-Member -MemberType NoteProperty -Name PrivExchange -Value $PrivExchange
+    ##################################################################################
+
+    ##################################################################################
+    #CVE-2020-0688
+    $CVE20200688 = $true
+    switch($ExchangeServer.MajorVersion)
+    {
+        "15" {
+                switch($ExchangeServer.MinorVersion)
+                {
+                    "2" {if([int]$ExchangeServer.Build -ge 464){$CVE20200688 = $false};Break}
+                    "1" {if([int]$ExchangeServer.Build -ge 1847){$CVE20200688 = $false};Break}
+                    "0" {if([int]$ExchangeServer.Build -ge 1497){$CVE20200688 = $false};Break}
+                }
+                Break
+             }
+        "14" {
+                switch($ExchangeServer.MinorVersion)
+                {
+                    "3" {if([int]$ExchangeServer.Build -ge 496){$CVE20200688 = $false};Break}
+                }
+                Break
+             }
+    }
+
+    $ExchangeServer | Add-Member -MemberType NoteProperty -Name CVE-2020-0688 -Value $CVE20200688
+    ##################################################################################
+
+    Write-Output $ExchangeServer
+
+    #Checking if server is vuln
+    if($ExchangeServer.PrivExchange -eq $true){
+        Write-Host -ForegroundColor yellow "[!] Exchange server $($ExchangeServer.FQDN) vulnerable to PrivExchange"
+    }
+
+    #Checking if server is vuln
+    if($ExchangeServer.'CVE-2020-0688' -eq $true){
+        Write-Host -ForegroundColor yellow "[!] Exchange server $($ExchangeServer.FQDN) vulnerable to CVE-2020-0688"
+    }
+}
 
 Write-Banner -Text "Looking for users having a mailbox"
 Write-Output "[saving into ""$EnumDir\users_with_mailbox.csv""]"
@@ -350,7 +423,7 @@ if ((Get-Location).Path -eq "$CurDir"){
         $RID = $SID.ToString().Split("f-")[7]
         if([int]$RID -ge 1000)
         {
-            Write-Host "[+] Permission to Sync AD granted to:" $ACL.IdentityReference
+            Write-Output "[+] Permission to Sync AD granted to:" $ACL.IdentityReference
             # $ACL.RemoveAccessRule($ACL.Access)
         }
     }

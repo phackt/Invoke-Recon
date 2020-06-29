@@ -152,10 +152,10 @@ Function Get-ADExchangeServer{
             Class = [string]$Class
             Category = $Category
             Version = "$($ExchVersion.MajorVersion).$($ExchVersion.MinorVersion).$($ExchVersion.Build)"
-            # MajorVersion = $ExchVersion.MajorVersion
-            # MinorVersion = $ExchVersion.MinorVersion
+            MajorVersion = $ExchVersion.MajorVersion
+            MinorVersion = $ExchVersion.MinorVersion
             # Flag = $ExchVersion.Flag
-            # Build = $ExchVersion.Build
+            Build = $ExchVersion.Build
             # LegacyVersionStructure = $ExchVersion.LegacyVersionStructure
         }
         $Object
