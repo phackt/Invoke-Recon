@@ -43,7 +43,6 @@ Section    : Additional
 IP4Address : 192.168.2.1
 
 
-
 +------+------------------------------------------------+------+
 | Searching all DCs
 +------+------------------------------------------------+------+
@@ -54,7 +53,6 @@ QueryType  : A
 TTL        : 600
 Section    : Additional
 IP4Address : 192.168.2.1
-
 
 
 +------+------------------------------------------------+------+
@@ -89,6 +87,22 @@ MemberName              : servicesadmin
 MemberDistinguishedName : CN=services admin,CN=Users,DC=us,DC=funcorp,DC=local
 MemberObjectClass       : user
 MemberSID               : S-1-5-21-3965405831-1015596948-2589850225-1122
+
+
++------+------------------------------------------------+------+
+| Looking for Exchange servers
++------+------------------------------------------------+------+
+
+Version       : 15.1.1531
+FQDN          : MAIL01.funcorp.local
+Roles         : UM CAS MB HT
+Class         : top server msExchExchangeServer
+PrivExchange  : True
+CVE-2020-0688 : True
+
+[!] Exchange server MAIL01.phackt.local vulnerable to PrivExchange
+[!] Exchange server MAIL01.phackt.local vulnerable to CVE-2020-0688
+
 
 ------+------------------------------------------------+------+
 | Computers with constrained delegation and protocol transition
