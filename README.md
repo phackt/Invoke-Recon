@@ -131,6 +131,6 @@ CVE-2020-0688 : True
 ```
 
 # Todo
-- Resolving https://github.com/NetSPI/PowerUpSQL/issues/61 for querying specific domain thanks to PowerUpSQL (any idea?)
+- https://github.com/NetSPI/PowerUpSQL/pull/62 - -DomainController using current security context (no creds supplied)
 - Finding all others common quick wins (privexchange, cve-2020-0688, ...)
 - Cross the results
