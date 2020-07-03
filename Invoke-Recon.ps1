@@ -239,7 +239,7 @@ foreach($pa in $PrivilegedAccounts){
 Write-Banner -Text "Looking for Exchange servers"
 # Only keeping for now CN=ms-Exch-Exchange-Server
 $ExchangeServers = Get-ADExchangeServer -ConfigurationNamingContext $RootDSE.configurationNamingContext -Server $PDC.IP4Address | Where-Object {$_.Category -like "CN=ms-Exch-Exchange-Server*"} | Select-Object Version,FQDN,Roles,Class
-Write-Output $ExchangeServers | Export-CSV -NoTypeInformation -Path "$EnumDir\exchange_servers.csv"
+$ExchangeServers | Export-CSV -NoTypeInformation -Path "$EnumDir\exchange_servers.csv"
 
 # Looking for [PrivExchange, CVE-2020-0688]
 # https://portal.msrc.microsoft.com/en-US/security-guidance/advisory/ADV190007
@@ -444,10 +444,11 @@ Write-BigBanner -Text "Starting enumeration of MSSQL instances"
 #
 
 Write-Banner -Text "Enumerate MSSQL instances (looking for SPN service class MSSQL)"
-Get-SQLInstanceDomain -IncludeIP | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumDir\instances.csv" | ConvertFrom-Csv
+$AllSQLInstances = Get-SQLInstanceDomain -IncludeIP -DomainController $PDC.IP4Address
+$AllSQLInstances | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumDir\instances.csv" | ConvertFrom-Csv
 
 Write-Banner -Text "Are MSSQL instances accessible ?"
-$Instances = Get-SQLInstanceDomain | Get-SQLConnectionTestThreaded
+$Instances = $AllSQLInstances | Get-SQLConnectionTestThreaded
 $AccessibleInstances = New-Object System.Collections.Generic.HashSet[String]
 foreach($Instance in $Instances){
     if($Instance.Status -eq "Accessible"){
