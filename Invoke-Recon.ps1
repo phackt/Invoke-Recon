@@ -445,7 +445,7 @@ Write-BigBanner -Text "Starting enumeration of MSSQL instances"
 
 Write-Banner -Text "Enumerate MSSQL instances (looking for SPN service class MSSQL)"
 $AllSQLInstances = Get-SQLInstanceDomain -IncludeIP -DomainController $PDC.IP4Address
-$AllSQLInstances | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumDir\instances.csv" | ConvertFrom-Csv
+$AllSQLInstances | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumMSSQLDir\instances.csv" | ConvertFrom-Csv
 
 Write-Banner -Text "Are MSSQL instances accessible ?"
 $Instances = $AllSQLInstances | Get-SQLConnectionTestThreaded
