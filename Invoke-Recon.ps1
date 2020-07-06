@@ -490,7 +490,8 @@ Write-Banner -Text "Find linked servers from each accessible MSSQL instances"
 foreach($Instance in $AccessibleInstances){ 
         Write-Output "`r`n[+] Instance: $Instance"
 
-        Get-SQLServerLinkCrawl -Instance $Instance | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumMSSQLDir\$Instance\linked_servers.csv" | ConvertFrom-Csv
+        Get-SQLServerLinkCrawl -Instance $Instance | Select-Object Version,Instance,Sysadmin,@{Name="Path";Expression={$_.Path -join ';'}},
+User,@{Name="Links";Expression={$_.Links -join ';'}} | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumMSSQLDir\$Instance\linked_servers.csv" | ConvertFrom-Csv
 }
 
 # ----------------------------------------------------------------
