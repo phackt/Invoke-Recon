@@ -62,6 +62,16 @@ function Write-BigBanner {
     
 }
 
+function Format-KerberosResults {
+    [CmdletBinding()] param(
+        [Parameter(ValueFromPipeline)]
+        $Object
+    )
+
+    $Object | Select-Object Description,DistinguishedName,Enabled,GivenName,@{Name="msDS-AllowedToDelegateTo";Expression={($_."msDS-AllowedToDelegateTo" | Out-String).Trim()}},Name,ObjectClass,ObjectGUID,SamAccountName,@{Name="servicePrincipalName";Expression={($_.servicePrincipalName | Out-String).Trim()}},SID,Surname,TrustedToAuthForDelegation,UserPrincipalName
+    
+}
+
 #
 # Check Commands are available
 #
@@ -355,39 +365,39 @@ Get-DomainUser -PreauthNotRequired -Domain $Domain -Server $PDC.IP4Address | Con
 #
 
 Write-Banner -Text "Computers with unconstrained delegation - skip DCs"
-Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {(TrustedForDelegation -eq $True) -AND (PrimaryGroupID -eq 515)} -Properties TrustedForDelegation,servicePrincipalName,Description | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\unconstrained_computers.csv" | ConvertFrom-Csv
+Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {(TrustedForDelegation -eq $True) -AND (PrimaryGroupID -eq 515)} -Properties TrustedForDelegation,servicePrincipalName,Description | Format-KerberosResult | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\unconstrained_computers.csv" | ConvertFrom-Csv
 
 Write-Banner -Text "Users with unconstrained delegation"
-Get-ADUSer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {(TrustedForDelegation -eq $True)} -Properties TrustedForDelegation,servicePrincipalName,Description | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\unconstrained_users.csv" | ConvertFrom-Csv
+Get-ADUSer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {(TrustedForDelegation -eq $True)} -Properties TrustedForDelegation,servicePrincipalName,Description | Format-KerberosResults | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\unconstrained_users.csv" | ConvertFrom-Csv
 
 Write-Banner -Text "Managed Service Accounts with unconstrained delegation"
-Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {(TrustedForDelegation -eq $True)} -Properties TrustedForDelegation,servicePrincipalName,Description | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\unconstrained_msa.csv" | ConvertFrom-Csv
+Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {(TrustedForDelegation -eq $True)} -Properties TrustedForDelegation,servicePrincipalName,Description | Format-KerberosResults | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\unconstrained_msa.csv" | ConvertFrom-Csv
 
 #
 # Kerberos delegation - constrained
 #
 
 Write-Banner -Text "Computers with constrained delegation"
-Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToDelegateTo -like '*'} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\constrained_computers.csv" | ConvertFrom-Csv
+Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToDelegateTo -like '*'} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\constrained_computers.csv" | ConvertFrom-Csv
 
 Write-Banner -Text "Users with constrained delegation"
-Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToDelegateTo -like '*'} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\constrained_users.csv" | ConvertFrom-Csv
+Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToDelegateTo -like '*'} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\constrained_users.csv" | ConvertFrom-Csv
 
 Write-Banner -Text "Managed Service Accounts with constrained delegation"
-Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToDelegateTo -like '*'} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\constrained_msa.csv" | ConvertFrom-Csv
+Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToDelegateTo -like '*'} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\constrained_msa.csv" | ConvertFrom-Csv
 
 #
 # Kerberos delegation - constrained with protocol transition
 #
 
 Write-Banner -Text "Computers with constrained delegation and protocol transition"
-Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {TrustedToAuthForDelegation -eq $True} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\constrained_t2a4d_computers.csv" | ConvertFrom-Csv
+Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {TrustedToAuthForDelegation -eq $True} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\constrained_t2a4d_computers.csv" | ConvertFrom-Csv
 
 Write-Banner -Text "Users with constrained delegation and protocol transition"
-Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {TrustedToAuthForDelegation -eq $True} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\constrained_t2a4d_users.csv" | ConvertFrom-Csv
+Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {TrustedToAuthForDelegation -eq $True} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\constrained_t2a4d_users.csv" | ConvertFrom-Csv
 
 Write-Banner -Text "Managed Service Accounts with constrained delegation and protocol transition"
-Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {TrustedToAuthForDelegation -eq $True} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\constrained_t2a4d_msa.csv" | ConvertFrom-Csv
+Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {TrustedToAuthForDelegation -eq $True} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\constrained_t2a4d_msa.csv" | ConvertFrom-Csv
 
 #
 # Find services with msDS-AllowedToActOnBehalfOfOtherIdentity
@@ -490,8 +500,8 @@ Write-Banner -Text "Find linked servers from each accessible MSSQL instances"
 foreach($Instance in $AccessibleInstances){ 
         Write-Output "`r`n[+] Instance: $Instance"
 
-        Get-SQLServerLinkCrawl -Instance $Instance | Select-Object Version,Instance,Sysadmin,@{Name="Path";Expression={$_.Path -join ';'}},
-User,@{Name="Links";Expression={$_.Links -join ';'}} | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumMSSQLDir\$Instance\linked_servers.csv" | ConvertFrom-Csv
+        Get-SQLServerLinkCrawl -Instance $Instance | Select-Object Version,Instance,Sysadmin,@{Name="Path";Expression={($_.Path | Out-String).Trim()}},
+User,@{Name="Links";Expression={($_.Links | Out-String).Trim()}} | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumMSSQLDir\$Instance\linked_servers.csv" | ConvertFrom-Csv
 }
 
 # ----------------------------------------------------------------
