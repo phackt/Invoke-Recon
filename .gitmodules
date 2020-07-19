@@ -7,5 +7,4 @@
 	url = https://github.com/samratashok/ADModule
 [submodule "modules/PowerUpSQL"]
 	path = modules/PowerUpSQL
-	url = https://github.com/phackt/PowerUpSQL.git
-	branch = nocreds_with_domaincontroller
+	url = https://github.com/NetSPI/PowerUpSQL.git
