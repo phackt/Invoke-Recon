@@ -11,7 +11,7 @@ Get-MpPreference | Select -Expand ExclusionPath
   
 If you don't already have imported the following modules for you enumeration:    
 ```
-git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git
+git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd .\Invoke-Recon
 Import-Module .\modules\PowerSploit\Recon\PowerView.ps1
 Import-Module .\modules\PowerUpSQL\PowerUpSQL.psd1
 Import-Module .\modules\ADModule\Microsoft.ActiveDirectory.Management.dll
