@@ -169,15 +169,15 @@ foreach($DCip in $AllDCs.IP4Address){
 
 $TargetDC = $PDC.IP4Address
 
-$adws = Test-NetConnection -ComputerName $TargetDC -Port 9389
-if (! $adws.TcpTestSucceeded){
+$adws = New-Object System.Net.Sockets.TCPClient -ArgumentList $TargetDC, 9389
+if (! $adws.Connected){
     Write-Host -ForegroundColor red "[!] ADWS on PDC $($TargetDC) are not accessible"
 
     Write-Output "[+] Trying to find a DC with accessible ADWS..."
     foreach($DCip in $AllDCs.IP4Address){
         if ($DCip -ne $TargetDC){
-            $adws = Test-NetConnection -ComputerName $DCip -Port 9389
-            if ($adws.TcpTestSucceeded){
+            $adws = New-Object System.Net.Sockets.TCPClient -ArgumentList $DCip, 9389
+            if ($adws.Connected){
                 Write-Output "[+] Target DC set to $($DCip)"
                 $TargetDC = $DCip
                 break
