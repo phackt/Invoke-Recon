@@ -514,7 +514,16 @@ if ((Get-Location).Path -eq "$CurDir"){
         #Filter this list to RIDs above 1000 which will exclude well-known Administrator groups
         if([int]$RID -ge 1000)
         {
-            Write-Output "[+] Permission to Sync AD granted to:" $ACL.IdentityReference
+            $ReplicatingRight = ''
+            if($ACL.ObjectType -eq '1131f6ad-9c07-11d1-f79f-00c04fc2dcd2'){
+                $ReplicatingRight = 'DS-Replication-Get-Changes-All'
+            }
+
+            if($ACL.ObjectType -eq '1131f6aa-9c07-11d1-f79f-00c04fc2dcd2'){
+                $ReplicatingRight = 'DS-Replication-Get-Changes'
+            }
+
+            Write-Output "[+] Permission '$ReplicatingRight' granted to '$($ACL.IdentityReference)'"
             # $ACL.RemoveAccessRule($ACL.Access)
         }
     }
