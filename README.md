@@ -100,8 +100,8 @@ Class         : top server msExchExchangeServer
 PrivExchange  : True
 CVE-2020-0688 : True
 
-[!] Exchange server MAIL01.phackt.local vulnerable to PrivExchange
-[!] Exchange server MAIL01.phackt.local vulnerable to CVE-2020-0688
+[!] Exchange server MAIL01.funcorp.local vulnerable to PrivExchange
+[!] Exchange server MAIL01.funcorp.local vulnerable to CVE-2020-0688
 
 
 ------+------------------------------------------------+------+
