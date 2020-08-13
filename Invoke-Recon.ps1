@@ -547,7 +547,7 @@ Write-Banner -Text "Enumerate MSSQL instances (looking for SPN service class MSS
 $AllSQLInstances = Get-SQLInstanceDomain -IncludeIP -DomainController $TargetDC
 $AllSQLInstances | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumMSSQLDir\instances.csv" | ConvertFrom-Csv
 
-Write-Banner -Text "Are MSSQL instances accessible ?"
+Write-Banner -Text "Are MSSQL instances accessible within current security context ?"
 $Instances = $AllSQLInstances | Get-SQLConnectionTestThreaded
 $AccessibleInstances = New-Object System.Collections.Generic.HashSet[String]
 foreach($Instance in $Instances){
@@ -590,8 +590,30 @@ Write-Banner -Text "Find linked servers from each accessible MSSQL instances"
 foreach($Instance in $AccessibleInstances){ 
         Write-Output "`r`n[+] Instance: $Instance"
 
-        Get-SQLServerLinkCrawl -Instance $Instance | Select-Object Version,Instance,Sysadmin,@{Name="Path";Expression={($_.Path | Out-String).Trim()}},
+        $LinkedServers = Get-SQLServerLinkCrawl -Instance $Instance | Select-Object Version,Instance,Sysadmin,@{Name="Path";Expression={($_.Path | Out-String).Trim()}},
 User,@{Name="Links";Expression={($_.Links | Out-String).Trim()}} | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumMSSQLDir\$Instance\linked_servers.csv" | ConvertFrom-Csv
+
+        Write-Output $LinkedServers
+
+        #
+        # Trying to RPC-OUT to linked server to execute stored procedure
+        #
+
+        $LinkedServers = $LinkedServers.Links
+        $LinkedServers = ,"$($Instance.split('.')[0])" + $LinkedServers
+
+        foreach($LinkedServer in $LinkedServers){
+
+            if($LinkedServer){
+                $result = Get-SQLServerLinkCrawl -Instance "$Instance" -QueryTarget "$LinkedServer" -Query "select name from sys.servers where is_rpc_out_enabled = 1 and is_linked=1;" | select -ExpandProperty CustomQuery
+
+                foreach($datarow in $result){
+                    if($datarow.Name){
+                        Write-Host -ForegroundColor yellow "[+] '$LinkedServer' can RPC-OUT to '$($datarow.Name)'"
+                    }
+                }
+            }     
+        }
 }
 
 # ----------------------------------------------------------------
