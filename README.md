@@ -24,10 +24,10 @@ Import-Module .\modules\ADModule\ActiveDirectory\ActiveDirectory.psd1
   
  - Find all DCs (check if ADWS are accessible in order to be able to use the Active Directory powershell module)
  - Get password domain policy
- - Get domain / forest Trusts
+ - Get domains / forests trusts
  - Get all domain users / groups / computers
- - Get privileged users with RID >= 1000 (recursive lookups for nested members from privileged groups, not AdminCount = 1 to avoid orphans)
- - Get users / computers / Managed Service Accounts with unconstrained (T4D) and constrained delegation (constrained delegation also with protocol transition (T2A4D)) 
+ - Get privileged users with RID >= 1000 (recursive lookups for nested members of privileged groups, not AdminCount = 1 to avoid orphans)
+ - Get users / computers / Managed Service Accounts with unconstrained (T4D) and constrained delegation (also look for constrained delegation with protocol transition (T2A4D)) 
  - Find services with msDS-AllowedToActOnBehalfOfOtherIdentity
  - Find Exchange servers
  - Find users with mailboxes
@@ -47,7 +47,7 @@ Import-Module .\modules\ADModule\ActiveDirectory\ActiveDirectory.psd1
 - Find linked servers from each accessible MSSQL instances
 - Bruteforce common credentials
 - Look for xp_cmdshell enabled through linked servers of each accessible instances
-- Auditing each accessible MSSQL Instances for common high impact vulnerabilities and weak configurations
+- Audit each accessible MSSQL Instances for common high impact vulnerabilities and weak configurations
   
 # Run  
 ```

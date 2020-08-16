@@ -596,7 +596,7 @@ User,@{Name="Links";Expression={($_.Links | Out-String).Trim()}} | ConvertTo-Csv
         Write-Output $LinkedServers
 
         #
-        # Trying to RPC-OUT to linked server to execute stored procedure
+        # Trying to RPC-OUT to linked server to remotely execute stored procedure
         #
 
         $LinkedServers = $LinkedServers.Links
