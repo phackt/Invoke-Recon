@@ -18,7 +18,38 @@ Import-Module .\modules\ADModule\Microsoft.ActiveDirectory.Management.dll
 Import-Module .\modules\ADModule\ActiveDirectory\ActiveDirectory.psd1
 ```  
   
-# Run
+# What we are looking for ?  
+  
+## Domain Enumeration  
+  
+ - Find all DCs (check if ADWS are accessible in order to be able to use the Active Directory powershell module)
+ - Get password domain policy
+ - Get domain / forest Trusts
+ - Get all domain users / groups / computers
+ - Get privileged users with RID >= 1000 (recursive lookups for nested members from privileged groups, not AdminCount = 1 to avoid orphans)
+ - Get users / computers / Managed Service Accounts with unconstrained (T4D) and constrained delegation (constrained delegation also with protocol transition (T2A4D)) 
+ - Find services with msDS-AllowedToActOnBehalfOfOtherIdentity
+ - Find Exchange servers
+ - Find users with mailboxes
+  
+## Quick Wins  
+  
+- Look for Exchange vulnerable to PrivExchange and CVE-2020-0688  
+- Look for deprecated OS
+- Look for users with Kerberos PreAuth disables (AS_REP Roasting)
+- Look for Kerberoastable users
+- Look for principals (RID >= 1000) with Replicating Directory Changes / Replicating Directory Changes All
+  
+## MSSQL Enumeration  
+  
+- Enumerates MSSQL instances (looking for SPN service class MSSQL)
+- Find MSSQL instances accessible within current security context and get their versions
+- Find linked servers from each accessible MSSQL instances
+- Bruteforce common credentials
+- Look for xp_cmdshell enabled through linked servers of each accessible instances
+- Auditing each accessible MSSQL Instances for common high impact vulnerabilities and weak configurations
+  
+# Run  
 ```
 .\Invoke-Recon.ps1 -Domain us.funcorp.local | Tee-Object -FilePath .\invoke-recon.txt
 
@@ -131,6 +162,4 @@ CVE-2020-0688 : True
 ```
 
 # Todo
-- https://github.com/NetSPI/PowerUpSQL/pull/62 - -DomainController using current security context (no creds supplied)
-- Finding all others common quick wins (privexchange, cve-2020-0688, ...)
-- Cross the results
+- check the [issues](https://github.com/phackt/Invoke-Recon/issues)
