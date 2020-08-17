@@ -23,22 +23,22 @@ Import-Module .\modules\ADModule\ActiveDirectory\ActiveDirectory.psd1
 ## Domain Enumeration  
   
  - Find all DCs (check if ADWS are accessible in order to be able to use the Active Directory powershell module)
- - Get password domain policy
- - Get domains / forests trusts
- - Get all domain users / groups / computers
- - Get privileged users with RID >= 1000 (recursive lookups for nested members of privileged groups, not AdminCount = 1 to avoid orphans)
- - Get users / computers / Managed Service Accounts with unconstrained (T4D) and constrained delegation (also look for constrained delegation with protocol transition (T2A4D)) 
- - Find services with msDS-AllowedToActOnBehalfOfOtherIdentity
- - Find Exchange servers
- - Find users with mailboxes
+ - Password domain policy
+ - Domains / forests trusts
+ - All domain users / groups / computers
+ - Privileged users with RID >= 1000 (recursive lookups for nested members of privileged groups, not AdminCount = 1 to avoid orphans)
+ - Users / computers / Managed Service Accounts with unconstrained (T4D) and constrained delegation (also look for constrained delegation with protocol transition (T2A4D)) 
+ - Services with msDS-AllowedToActOnBehalfOfOtherIdentity
+ - Exchange servers
+ - Users with mailboxes
   
 ## Quick Wins  
   
-- Look for Exchange vulnerable to PrivExchange and CVE-2020-0688  
-- Look for deprecated OS
-- Look for users with Kerberos PreAuth disables (AS_REP Roasting)
-- Look for Kerberoastable users
-- Look for principals (RID >= 1000) with Replicating Directory Changes / Replicating Directory Changes All
+- Exchange vulnerable to PrivExchange and CVE-2020-0688  
+- Computers with deprecated OS
+- Users with Kerberos PreAuth disables (AS_REP Roasting)
+- Kerberoastable users
+- Principals (RID >= 1000) with Replicating Directory Changes / Replicating Directory Changes All
   
 ## MSSQL Enumeration  
   
