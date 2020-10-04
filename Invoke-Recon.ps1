@@ -151,6 +151,7 @@ foreach ($OutputDir in $OutputDirs){
 
 Write-BigBanner -Text "Starting enumeration of domain $Domain"
 
+# PDC concept may be a bit oldschool
 Write-Banner -Text "Looking for PDC"
 $PDC = Resolve-DnsName -DnsOnly -Type SRV _ldap._tcp.pdc._msdcs.$Domain
 Write-Output $PDC
@@ -167,7 +168,9 @@ foreach($DCip in $AllDCs.IP4Address){
 
 # Testing if ADWS is up on PDC and port 389 is accessible
 
-$TargetDC = $PDC.IP4Address
+# /!\ because several PDCs have been returned during an engagement
+$TargetDC = ($PDC | %{$_.IP4Address}) | Select-Object -First 1
+Write-Host -ForegroundColor yellow "[+] Target DC ip: $TargetDC"
 
 $adws = New-Object System.Net.Sockets.TCPClient -ArgumentList $TargetDC, 9389
 if (! $adws.Connected){
