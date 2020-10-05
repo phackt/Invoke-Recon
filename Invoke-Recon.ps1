@@ -168,7 +168,7 @@ foreach($DCip in $AllDCs.IP4Address){
 
 # Testing if ADWS is up on PDC and port 389 is accessible
 
-# /!\ because several PDCs have been returned during an engagement
+# /!\ several SRV DNS entries for PDCs may exist
 $TargetDC = ($PDC | %{$_.IP4Address}) | Select-Object -First 1
 Write-Host -ForegroundColor yellow "[+] Target DC ip: $TargetDC"
 
@@ -305,6 +305,19 @@ foreach($pa in $PrivilegedAccounts){
 
 }
 #>
+
+#
+# DNSAdmins members
+#
+
+Write-Banner -Text "'DNSAdmins' group members"
+
+$DNSAdmins = Get-DomainGroupMember -Domain $Domain -Server $TargetDC -Identity "DNSAdmins"
+$DNSAdmins | Output-Results -Path "$EnumDir\dnsadmins" -Tee
+
+if($DNSAdmins){
+    Write-Host -ForegroundColor yellow "[!] For exploitation, see: http://www.labofapenetrationtester.com/2017/05/abusing-dnsadmins-privilege-for-escalation-in-active-directory.html"
+}
 
 #
 # Exchange servers

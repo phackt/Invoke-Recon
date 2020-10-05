@@ -27,6 +27,7 @@ Import-Module .\modules\ADModule\ActiveDirectory\ActiveDirectory.psd1
  - Domains / forests trusts
  - All domain users / groups / computers
  - Privileged users with RID >= 1000 (recursive lookups for nested members of privileged groups, not AdminCount = 1 to avoid orphans)
+ - DNSAdmins group members
  - Users / computers / Managed Service Accounts with unconstrained (T4D) and constrained delegation (also look for constrained delegation with protocol transition (T2A4D)) 
  - Services with msDS-AllowedToActOnBehalfOfOtherIdentity
  - Exchange servers
