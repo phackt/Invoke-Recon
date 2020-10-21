@@ -164,7 +164,7 @@ CVE-2020-0688 : True
 
 # Support
 
-[Thanks a lot for your support](https://www.buymeacoffee.com/phackt)
+Thanks a lot for supporting me [here](https://www.buymeacoffee.com/phackt)
 
 # Todo
 - check the [issues](https://github.com/phackt/Invoke-Recon/issues)
