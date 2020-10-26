@@ -152,11 +152,11 @@ foreach ($OutputDir in $OutputDirs){
 Write-BigBanner -Text "Starting enumeration of domain $Domain"
 
 # PDC concept may be a bit oldschool
-Write-Banner -Text "Looking for PDC"
+Write-Banner -Text "Looking for PDC (DNS enum)"
 $PDC = Resolve-DnsName -DnsOnly -Type SRV _ldap._tcp.pdc._msdcs.$Domain
 Write-Output $PDC
 
-Write-Banner -Text "Looking for all DCs"
+Write-Banner -Text "Looking for all DCs (DNS enum)"
 $AllDCs = Resolve-DnsName -DnsOnly -Type SRV _ldap._tcp.dc._msdcs.$Domain
 Write-Output $AllDCs
 
@@ -164,6 +164,18 @@ Write-Banner -Text "Checking spooler service is up on DCs"
 foreach($DCip in $AllDCs.IP4Address){
     Write-Output "[+] ls \\$DCip\pipe\spoolss"
     ls \\$DCip\pipe\spoolss
+}
+
+# Discovering Domain Controllers thanks to Get-DomainController (userAccountControl:1.2.840.113556.1.4.803:=8192)
+$AllDCs_pw = Get-DomainController -Domain $Domain
+
+$nb_AllDCs = $($AllDCs.IP4Address | Sort-Object | Get-Unique).count
+$nb_AllDCs_pw = $($AllDCs_pw.IPAddress | Sort-Object | Get-Unique).count
+
+if ($nb_AllDCs -ne $nb_AllDCs_pw){
+    Write-Host -ForegroundColor yellow "[+] Numbers of Domain Controllers mismatch"
+    Write-Host -ForegroundColor yellow "    DNS enumeration: $($nb_AllDCs)"
+    Write-Host -ForegroundColor yellow "    LDAP filter (userAccountControl:1.2.840.113556.1.4.803:=8192): $($nb_AllDCs_pw)`r`n"
 }
 
 # Testing if ADWS is up on PDC and port 389 is accessible
@@ -177,7 +189,7 @@ if (! $adws.Connected){
     Write-Host -ForegroundColor red "[!] ADWS on PDC $($TargetDC) are not accessible"
 
     Write-Output "[+] Trying to find a DC with accessible ADWS..."
-    foreach($DCip in $AllDCs.IP4Address){
+    foreach($DCip in $($AllDCs.IP4Address | Sort-Object | Get-Unique)){
         if ($DCip -ne $TargetDC){
             $adws = New-Object System.Net.Sockets.TCPClient -ArgumentList $DCip, 9389
             if ($adws.Connected){
@@ -259,12 +271,12 @@ Write-Banner -Text "Nested privileged users (RID >= 1000)"
     "Backup Operators"
 #>
 
-$AdministratorsGroup = Get-DomainGroup -Domain $Domain -Identity "S-1-5-32-544"
-$DomainAdminsGroup = Get-DomainGroup -Domain $Domain -Identity "$DomainSID-512"
-$EnterpriseAdminsGroup = Get-DomainGroup -Domain $Domain -Identity "$DomainSID-519"
-$SchemaAdminsGroup = Get-DomainGroup -Domain $Domain -Identity "$DomainSID-518"
-$AccountOperatorsGroup = Get-DomainGroup -Domain $Domain -Identity "S-1-5-32-548"
-$BackupOperatorsGroup = Get-DomainGroup -Domain $Domain -Identity "S-1-5-32-551"
+$AdministratorsGroup = Get-DomainGroup -Domain $Domain -Server $TargetDC -Identity "S-1-5-32-544"
+$DomainAdminsGroup = Get-DomainGroup -Domain $Domain -Server $TargetDC -Identity "$DomainSID-512"
+$EnterpriseAdminsGroup = Get-DomainGroup -Domain $Domain -Server $TargetDC -Identity "$DomainSID-519"
+$SchemaAdminsGroup = Get-DomainGroup -Domain $Domain -Server $TargetDC "$DomainSID-518"
+$AccountOperatorsGroup = Get-DomainGroup -Domain $Domain -Server $TargetDC "S-1-5-32-548"
+$BackupOperatorsGroup = Get-DomainGroup -Domain $Domain -Server $TargetDC "S-1-5-32-551"
 
 $AdministratorsGroup.objectsid,$DomainAdminsGroup.objectsid,$EnterpriseAdminsGroup.objectsid,$SchemaAdminsGroup.objectsid,$AccountOperatorsGroup.objectsid,$BackupOperatorsGroup.objectsid | Get-DomainGroupMember -Recurse -Domain $Domain -Server $TargetDC 2> $null | Where-Object {($_.MemberObjectClass -eq "user") -and ([int]$_.MemberSID.split("-")[7] -ge 1000)} | Sort MemberSID -Unique | Output-Results -Path "$EnumDir\privileged_accounts" -Tee
 
