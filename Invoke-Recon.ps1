@@ -440,7 +440,7 @@ $sidEWP = $(Get-DomainGroup 'Exchange Windows Permissions' -Properties objectsid
 $AtLeastOneWithoutInheritOnlyWriteDac = Get-DomainObjectAcl $RootDSE.defaultNamingContext | ? { ($_.SecurityIdentifier -match "$sidEWP") -and ($_.ActiveDirectoryRights -match 'WriteDacl') -and -not ($_.AceFlags -match 'InheritOnly') }
 
 if($AtLeastOneWithoutInheritOnlyWriteDac) {
-	Write-ColorOutput yellow "`r`n[!] At least one WriteDacl right without InheritOnly on '$($RootDSE.configurationNamingContext)' has been found (confirming privexchange attack)"
+	Write-ColorOutput yellow "`r`n[!] At least one WriteDacl right without InheritOnly on '$($RootDSE.defaultNamingContext)' has been found (confirming privexchange attack)"
 }else{
 	Write-ColorOutput red "`r`n[!] If some exchange servers has been found vulnerable, the right 'WriteDacl' appears to be InheritOnly"
 }
