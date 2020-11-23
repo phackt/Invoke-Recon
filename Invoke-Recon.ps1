@@ -30,6 +30,26 @@ if ((Get-Module -Name "GadgetExchange") -eq $null){
 # ----------------------------------------------------------------
 # ----------------------------------------------------------------
 
+function Write-ColorOutput($ForegroundColor)
+{
+    # save the current color
+    $fc = $host.UI.RawUI.ForegroundColor
+
+    # set the new color
+    $host.UI.RawUI.ForegroundColor = $ForegroundColor
+
+     # output
+    if ($args) {
+        Write-Output $args
+    }
+    else {
+        $input | Write-Output
+    }
+
+    # restore the original color
+    $host.UI.RawUI.ForegroundColor = $fc
+}
+
 function Write-Banner {
     [CmdletBinding()] param(
         [Parameter(Mandatory=$true)]
@@ -173,20 +193,20 @@ $nb_AllDCs = $($AllDCs.IP4Address | Sort-Object | Get-Unique).count
 $nb_AllDCs_pw = $($AllDCs_pw.IPAddress | Sort-Object | Get-Unique).count
 
 if ($nb_AllDCs -ne $nb_AllDCs_pw){
-    Write-Host -ForegroundColor yellow "[+] Numbers of Domain Controllers mismatch"
-    Write-Host -ForegroundColor yellow "    DNS enumeration: $($nb_AllDCs)"
-    Write-Host -ForegroundColor yellow "    LDAP filter (userAccountControl:1.2.840.113556.1.4.803:=8192): $($nb_AllDCs_pw)`r`n"
+    Write-ColorOutput yellow "[+] Numbers of Domain Controllers mismatch"
+    Write-ColorOutput yellow "    DNS enumeration: $($nb_AllDCs)"
+    Write-ColorOutput yellow "    LDAP filter (userAccountControl:1.2.840.113556.1.4.803:=8192): $($nb_AllDCs_pw)`r`n"
 }
 
 # Testing if ADWS is up on PDC and port 389 is accessible
 
 # /!\ several SRV DNS entries for PDCs may exist
 $TargetDC = ($PDC | %{$_.IP4Address}) | Select-Object -First 1
-Write-Host -ForegroundColor yellow "[+] Target DC ip: $TargetDC"
+Write-ColorOutput yellow "[+] Target DC ip: $TargetDC"
 
 $adws = New-Object System.Net.Sockets.TCPClient -ArgumentList $TargetDC, 9389
 if (! $adws.Connected){
-    Write-Host -ForegroundColor red "[!] ADWS on PDC $($TargetDC) are not accessible"
+    Write-ColorOutput red "[!] ADWS on PDC $($TargetDC) are not accessible"
 
     Write-Output "[+] Trying to find a DC with accessible ADWS..."
     foreach($DCip in $($AllDCs.IP4Address | Sort-Object | Get-Unique)){
@@ -201,7 +221,7 @@ if (! $adws.Connected){
     }
 
     if ($TargetDC -eq $PDC.IP4Address){
-        Write-Host -ForegroundColor yellow "[+] Enumeration using Active Directory module may be limited"
+        Write-ColorOutput yellow "[+] Enumeration using Active Directory module may be limited"
     }
 }
 
@@ -328,7 +348,7 @@ $DNSAdmins = Get-DomainGroupMember -Domain $Domain -Server $TargetDC -Identity "
 $DNSAdmins | Output-Results -Path "$EnumDir\dnsadmins" -Tee
 
 if($DNSAdmins){
-    Write-Host -ForegroundColor yellow "[!] For exploitation, see: http://www.labofapenetrationtester.com/2017/05/abusing-dnsadmins-privilege-for-escalation-in-active-directory.html"
+    Write-ColorOutput yellow "[!] For exploitation, see: http://www.labofapenetrationtester.com/2017/05/abusing-dnsadmins-privilege-for-escalation-in-active-directory.html"
 }
 
 #
@@ -405,13 +425,24 @@ foreach($ExchangeServer in $ExchangeServers){
 
     #Checking if server is vuln
     if($ExchangeServer.PrivExchange -eq $true){
-        Write-Host -ForegroundColor yellow "[!] Exchange server $($ExchangeServer.FQDN) vulnerable to PrivExchange"
+	Write-ColorOutput yellow "[!] Exchange server $($ExchangeServer.FQDN) vulnerable to PrivExchange"
     }
 
     #Checking if server is vuln
     if($ExchangeServer.'CVE-2020-0688' -eq $true){
-        Write-Host -ForegroundColor yellow "[!] Exchange server $($ExchangeServer.FQDN) vulnerable to CVE-2020-0688"
+        Write-ColorOutput yellow "[!] Exchange server $($ExchangeServer.FQDN) vulnerable to CVE-2020-0688"
     }
+}
+
+# /!\ Also, we want to confirm that the WriteDacl right has not been manually set with the flag InheritOnly
+
+$sidEWP = $(Get-DomainGroup 'Exchange Windows Permissions' -Properties objectsid).objectsid
+$AtLeastOneWithoutInheritOnlyWriteDac = Get-DomainObjectAcl $RootDSE.defaultNamingContext | ? { ($_.SecurityIdentifier -match "$sidEWP") -and ($_.ActiveDirectoryRights -match 'WriteDacl') -and -not ($_.AceFlags -match 'InheritOnly') }
+
+if($AtLeastOneWithoutInheritOnlyWriteDac) {
+	Write-ColorOutput yellow "`r`n[!] At least one WriteDacl right without InheritOnly on '$($RootDSE.configurationNamingContext)' has been found (confirming privexchange attack)"
+}else{
+	Write-ColorOutput red "`r`n[!] If some exchange servers has been found vulnerable, the right 'WriteDacl' appears to be InheritOnly"
 }
 
 Write-Banner -Text "Looking for users having a mailbox"
@@ -459,11 +490,11 @@ if($KerberoastableUsers){
     }
 
     Write-Output "[saving tickets into ""$KerberoastDir\""]"
-    Write-Host -ForegroundColor yellow "`r`n[!] Now run:"
-    Write-Host -ForegroundColor yellow "    john --session=""Kerberoasting"" --wordlist=""$DicoPath"" $KerberoastDir\*"
+    Write-ColorOutput yellow "`r`n[!] Now run:"
+    Write-ColorOutput yellow "    john --session=""Kerberoasting"" --wordlist=""$DicoPath"" $KerberoastDir\*"
 
-    Write-Host -ForegroundColor yellow "`r`n[!] On linux, before john, run:"
-    Write-Host -ForegroundColor yellow "    find /path/with/tickets -type f -name ""*.txt"" -print0 | xargs -0 dos2unix"    
+    Write-ColorOutput yellow "`r`n[!] On linux, before john, run:"
+    Write-ColorOutput yellow "    find /path/with/tickets -type f -name ""*.txt"" -print0 | xargs -0 dos2unix"
 } else {
     Write-Output "[+] No kerberoastable users"
 }
@@ -520,15 +551,15 @@ Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {
 Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {msDS-AllowedToActOnBehalfOfOtherIdentity -like '*'} -Properties msDS-AllowedToActOnBehalfOfOtherIdentity,servicePrincipalName,Description | Output-Results -Path "$QuickWinsDir\actonbehalf_msa" -Tee
 
 #
-# Find principals (RID >= 1000) with Replicating Directory Changes / Replicating Directory Changes All
+# Find principals (RID >= 1000) with Replicating Directory Changes / Replicating Directory Changes All or GenericAll set on the domain root
 #
 
-Write-Banner -Text "Finding principals with replicating permissions"
+Write-Banner -Text "Finding principals who can DCSync ('replication-get' or 'GenericAll' on $($RootDSE.defaultNamingContext))"
 $DefaultNamingContext = $RootDSE.defaultNamingContext
 cd "AD:\$DefaultNamingContext"
 
 if ((Get-Location).Path -eq "$CurDir"){
-    Get-DomainObjectAcl $RootDSE.defaultNamingContext -ResolveGUIDs | ?{($_.ObjectType -match 'replication-get')}
+    Get-DomainObjectAcl $RootDSE.defaultNamingContext -ResolveGUIDs | ?{($_.ObjectType -match 'replication-get') -or ($_.ActiveDirectoryRights -match 'GenericAll')}
 } else
 {
     $AllReplACLs = (Get-AcL).Access | Where-Object {$_.ObjectType -eq '1131f6ad-9c07-11d1-f79f-00c04fc2dcd2' -or $_.ObjectType -eq '1131f6aa-9c07-11d1-f79f-00c04fc2dcd2'}
@@ -637,7 +668,7 @@ User,@{Name="Links";Expression={($_.Links | Out-String).Trim()}} | ConvertTo-Csv
 
                 foreach($datarow in $result){
                     if($datarow.Name){
-                        Write-Host -ForegroundColor yellow "[+] '$LinkedServer' can RPC-OUT to '$($datarow.Name)'"
+                        Write-ColorOutput yellow "[+] '$LinkedServer' can RPC-OUT to '$($datarow.Name)'"
                     }
                 }
             }     
