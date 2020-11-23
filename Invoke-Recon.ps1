@@ -434,7 +434,7 @@ foreach($ExchangeServer in $ExchangeServers){
     }
 }
 
-# /!\ Also, we want to confirm that the WriteDacl right has not been manually set with the flag InheritOnly
+# /!\ Also, we want to confirm that the WriteDacl right has not been manually set with the flag InheritOnly for the group 'Exchange Windows Permissions'
 
 $sidEWP = $(Get-DomainGroup 'Exchange Windows Permissions' -Properties objectsid).objectsid
 $AtLeastOneWithoutInheritOnlyWriteDac = Get-DomainObjectAcl $RootDSE.defaultNamingContext | ? { ($_.SecurityIdentifier -match "$sidEWP") -and ($_.ActiveDirectoryRights -match 'WriteDacl') -and -not ($_.AceFlags -match 'InheritOnly') }
