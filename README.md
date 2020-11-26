@@ -1,24 +1,24 @@
 # Invoke-Recon
 Powershell script as a first step for domain enumeration. Tries to spot quickwins.  
 Just because i'm tired to type the same AD / PowerView commands over and over.  
-  
+
 # Prerequisites  
 You may want to exclude your tools directory from Defender (if you clone submodules for examples):  
 ```
 Add-MpPreference -ExclusionPath "C:\Users\bleponge\Documents\myrepos"
 Get-MpPreference | Select -Expand ExclusionPath
 ```  
-  
+
 Git clone and run:    
 ```
 git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd .\Invoke-Recon
 .\Invoke-Recon.ps1 -Domain us.funcorp.local | Tee-Object -FilePath .\invoke-recon.txt
 ```  
-  
+
 # What we are looking for ?  
-  
+
 ## Domain Enumeration  
-  
+
 - Find all DCs (check if ADWS are accessible in order to be able to use the Active Directory powershell module)
 - Password domain policy
 - Domains / forests trusts
@@ -28,15 +28,15 @@ git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd 
 - Users / computers / Managed Service Accounts with :
 	- unconstrained delegation (T4D)
 	- constrained delegation
-	- constrained delegation with protocol transition (T2A4D) 
+	- constrained delegation with protocol transition (T2A4D)
 - Services with msDS-AllowedToActOnBehalfOfOtherIdentity
 - Exchange servers
 	- Confirm WriteDAC on root domain without InheritOnly
 	- Users with mailboxes  
-...
-  
+
+
 ## Quick Wins  
-  
+
 - Exchange vulnerable to :
 	- PrivExchange (CVE-2018-8581)
 	- CVE-2020-0688  
@@ -46,17 +46,17 @@ git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd 
 - Principals (RID >= 1000) with the following rights on root domain :
 	- Replicating Directory Changes / Replicating Directory Changes All
 	- GenericAll  
-...  
-  
+
+
 ## MSSQL Enumeration  
-  
+
 - Enumerates MSSQL instances (looking for SPN service class MSSQL)
 - Find MSSQL instances accessible within current security context and get their versions
 - Find linked servers from each accessible MSSQL instances
 - Bruteforce common credentials
 - Look for xp_cmdshell enabled through linked servers of each accessible instances
 - Audit each accessible MSSQL Instances for common high impact vulnerabilities and weak configurations
-  
+
 # Run  
 ```
 .\Invoke-Recon.ps1 -Domain us.funcorp.local | Tee-Object -FilePath .\invoke-recon.txt
