@@ -31,7 +31,7 @@ Import-Module .\modules\ADModule\ActiveDirectory\ActiveDirectory.psd1
  - Users / computers / Managed Service Accounts with unconstrained (T4D) and constrained delegation (also look for constrained delegation with protocol transition (T2A4D)) 
  - Services with msDS-AllowedToActOnBehalfOfOtherIdentity
  - Exchange servers
- - Users with mailboxes
+ - Users with mailboxes  
  ...
   
 ## Quick Wins  
@@ -40,7 +40,7 @@ Import-Module .\modules\ADModule\ActiveDirectory\ActiveDirectory.psd1
 - Computers with deprecated OS
 - Users with Kerberos PreAuth disables (AS_REP Roasting)
 - Kerberoastable users
-- Principals (RID >= 1000) with Replicating Directory Changes / Replicating Directory Changes All or GenericAll on root domain
+- Principals (RID >= 1000) with Replicating Directory Changes / Replicating Directory Changes All or GenericAll on root domain  
 ...  
   
 ## MSSQL Enumeration  
