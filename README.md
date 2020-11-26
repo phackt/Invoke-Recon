@@ -12,10 +12,7 @@ Get-MpPreference | Select -Expand ExclusionPath
 If you don't already have imported the following modules for you enumeration:    
 ```
 git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd .\Invoke-Recon
-Import-Module .\modules\PowerSploit\Recon\PowerView.ps1
-Import-Module .\modules\PowerUpSQL\PowerUpSQL.psd1
-Import-Module .\modules\ADModule\Microsoft.ActiveDirectory.Management.dll
-Import-Module .\modules\ADModule\ActiveDirectory\ActiveDirectory.psd1
+.\Invoke-Recon.ps1 -Domain us.funcorp.local | Tee-Object -FilePath .\invoke-recon.txt
 ```  
   
 # What we are looking for ?  
@@ -53,6 +50,11 @@ Import-Module .\modules\ADModule\ActiveDirectory\ActiveDirectory.psd1
 # Run  
 ```
 .\Invoke-Recon.ps1 -Domain us.funcorp.local | Tee-Object -FilePath .\invoke-recon.txt
+
+[+] PowerSploit module not found. Importing ...
+[+] Microsoft.ActiveDirectory.Management.dll not found. Importing ...
+[+] ActiveDirectory module not found. Importing ...
+[+] PowerUpSQL module not found. Importing ...
 
 ################################################################
 ################################################################

@@ -15,14 +15,53 @@ param(
   [String]$Domain
 )
 
+# ----------------------------------------------------------------
+# ----------------------------------------------------------------
+# Importing modules  
+# ----------------------------------------------------------------
+# ----------------------------------------------------------------
+
+function Import-CustomModule($ScriptPath, $ModuleName){
+    Import-Module "$ScriptPath"
+
+    if ((Get-Module -Name "$ModuleName") -eq $null){
+        throw "$ScriptPath not found, error importing module."
+    }
+}
+
+<#
+    Importing main modules
+#>
+
+if (-Not ((Get-Module -Name "PowerSploit") -ne $null -or (Get-Module -Name "PowerView") -ne $null)){
+    Write-Output "[+] PowerSploit module not found. Importing ..."
+    Import-CustomModule $PSScriptRoot\modules\PowerSploit\PowerSploit.psm1 PowerSploit
+}
+
+if ((Get-Module -Name "Microsoft.ActiveDirectory.Management") -eq $null){
+    Write-Output "[+] Microsoft.ActiveDirectory.Management.dll not found. Importing ..."
+    Import-CustomModule $PSScriptRoot\modules\ADModule\Microsoft.ActiveDirectory.Management.dll Microsoft.ActiveDirectory.Management
+}
+
+if ((Get-Module -Name "ActiveDirectory") -eq $null){
+    Write-Output "[+] ActiveDirectory module not found. Importing ..."
+    Import-CustomModule $PSScriptRoot\modules\ADModule\ActiveDirectory\ActiveDirectory.psd1 ActiveDirectory
+}
+
+if ((Get-Module -Name "PowerUpSQL") -eq $null){
+    Write-Output "[+] PowerUpSQL module not found. Importing ..."
+    Import-CustomModule $PSScriptRoot\modules\PowerUpSQL\PowerUpSQL.psd1 PowerUpSQL
+}
+
 <#
     Importing custom modules
 #>
-Import-Module .\modules\GadgetExchange.psm1
 
 if ((Get-Module -Name "GadgetExchange") -eq $null){
-    Write-Error "[!] .\modules\GadgetExchange.psm1 not found, Exchange Servers enumeration will not be processed"
+    Write-Output "[+] GadgetExchange module not found. Importing ..."
+    Import-CustomModule "$PSScriptRoot\modules\GadgetExchange.psm1" GadgetExchange
 }
+
 
 # ----------------------------------------------------------------
 # ----------------------------------------------------------------
@@ -121,14 +160,6 @@ function Output-Results {
             $Array | Out-File "$TXTPath"
         }
     }
-}
-
-#
-# Check Commands are available
-#
-
-if (-Not (((Get-Module -Name "*PowerSploit*") -ne $null -or (Get-Module -Name "*PowerView*") -ne $null) -and (Get-Module -Name "ActiveDirectory") -ne $null -and (Get-Module -Name "PowerUpSQL") -ne $null)){
-    throw "[!] Please import the following modules: PowerView (dev branch), ActiveDirectory (ADModule) and PowerUpSQL"
 }
 
 #
@@ -425,7 +456,7 @@ foreach($ExchangeServer in $ExchangeServers){
 
     #Checking if server is vuln
     if($ExchangeServer.PrivExchange -eq $true){
-	Write-ColorOutput yellow "[!] Exchange server $($ExchangeServer.FQDN) vulnerable to PrivExchange"
+    Write-ColorOutput yellow "[!] Exchange server $($ExchangeServer.FQDN) vulnerable to PrivExchange"
     }
 
     #Checking if server is vuln
@@ -440,9 +471,9 @@ $sidEWP = $(Get-DomainGroup 'Exchange Windows Permissions' -Properties objectsid
 $AtLeastOneWithoutInheritOnlyWriteDac = Get-DomainObjectAcl $RootDSE.defaultNamingContext | ? { ($_.SecurityIdentifier -match "$sidEWP") -and ($_.ActiveDirectoryRights -match 'WriteDacl') -and -not ($_.AceFlags -match 'InheritOnly') }
 
 if($AtLeastOneWithoutInheritOnlyWriteDac) {
-	Write-ColorOutput yellow "`r`n[!] At least one WriteDacl right without InheritOnly on '$($RootDSE.defaultNamingContext)' has been found (confirming privexchange attack)"
+    Write-ColorOutput yellow "`r`n[!] At least one WriteDacl right without InheritOnly on '$($RootDSE.defaultNamingContext)' has been found (confirming privexchange attack)"
 }else{
-	Write-ColorOutput red "`r`n[!] If some exchange servers has been found vulnerable, the right 'WriteDacl' appears to be InheritOnly"
+    Write-ColorOutput red "`r`n[!] If some exchange servers has been found vulnerable, the right 'WriteDacl' appears to be InheritOnly"
 }
 
 Write-Banner -Text "Looking for users having a mailbox"
@@ -708,3 +739,5 @@ foreach($Instance in $AccessibleInstances){
 
         Invoke-SQLAudit -Instance $Instance | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumMSSQLDir\$Instance\audit.csv" | ConvertFrom-Csv
 }
+
+Write-Output "`r`n[!] Don't forget that you can use PowerSploit, RSAT AD and PowerUPSQL in your current powershell session"
