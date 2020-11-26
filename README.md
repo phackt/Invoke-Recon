@@ -25,7 +25,10 @@ git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd 
  - All domain users / groups / computers
  - Privileged users with RID >= 1000 (recursive lookups for nested members of privileged groups, not AdminCount = 1 to avoid orphans)
  - DNSAdmins group members
- - Users / computers / Managed Service Accounts with unconstrained (T4D) and constrained delegation (also look for constrained delegation with protocol transition (T2A4D)) 
+ - Users / computers / Managed Service Accounts with :
+ 	- unconstrained delegation (T4D)
+ 	- constrained delegation
+ 	- constrained delegation with protocol transition (T2A4D) 
  - Services with msDS-AllowedToActOnBehalfOfOtherIdentity
  - Exchange servers
  	- Confirm WriteDAC on root domain without InheritOnly
@@ -38,7 +41,9 @@ git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd 
 - Computers with deprecated OS
 - Users with Kerberos PreAuth disables (AS_REP Roasting)
 - Kerberoastable users
-- Principals (RID >= 1000) with Replicating Directory Changes / Replicating Directory Changes All or GenericAll on root domain  
+- Principals (RID >= 1000) with the following rights on root domain :
+	- Replicating Directory Changes / Replicating Directory Changes All
+	- GenericAll  
 ...  
   
 ## MSSQL Enumeration  
