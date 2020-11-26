@@ -32,6 +32,7 @@ Import-Module .\modules\ADModule\ActiveDirectory\ActiveDirectory.psd1
  - Services with msDS-AllowedToActOnBehalfOfOtherIdentity
  - Exchange servers
  - Users with mailboxes
+ ...
   
 ## Quick Wins  
   
@@ -39,7 +40,8 @@ Import-Module .\modules\ADModule\ActiveDirectory\ActiveDirectory.psd1
 - Computers with deprecated OS
 - Users with Kerberos PreAuth disables (AS_REP Roasting)
 - Kerberoastable users
-- Principals (RID >= 1000) with Replicating Directory Changes / Replicating Directory Changes All
+- Principals (RID >= 1000) with Replicating Directory Changes / Replicating Directory Changes All or GenericAll on root domain
+...  
   
 ## MSSQL Enumeration  
   
