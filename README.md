@@ -33,6 +33,7 @@ git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd 
  - Exchange servers
  	- Confirm WriteDAC on root domain without InheritOnly
  	- Users with mailboxes  
+
  ...
   
 ## Quick Wins  
@@ -46,6 +47,7 @@ git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd 
 - Principals (RID >= 1000) with the following rights on root domain :
 	- Replicating Directory Changes / Replicating Directory Changes All
 	- GenericAll  
+  
 ...  
   
 ## MSSQL Enumeration  
