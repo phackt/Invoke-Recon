@@ -37,7 +37,9 @@ git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd 
   
 ## Quick Wins  
   
-- Exchange vulnerable to PrivExchange and CVE-2020-0688  
+- Exchange vulnerable to :
+	- PrivExchange (CVE-2018-8581)
+	- CVE-2020-0688  
 - Computers with deprecated OS
 - Users with Kerberos PreAuth disables (AS_REP Roasting)
 - Kerberoastable users
