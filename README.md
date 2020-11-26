@@ -28,8 +28,8 @@ git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd 
  - Users / computers / Managed Service Accounts with unconstrained (T4D) and constrained delegation (also look for constrained delegation with protocol transition (T2A4D)) 
  - Services with msDS-AllowedToActOnBehalfOfOtherIdentity
  - Exchange servers
-  - Confirm WriteDAC on root domain without InheritOnly
-  - Users with mailboxes  
+ 	- Confirm WriteDAC on root domain without InheritOnly
+ 	- Users with mailboxes  
  ...
   
 ## Quick Wins  
