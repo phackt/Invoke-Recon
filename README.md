@@ -9,7 +9,7 @@ Add-MpPreference -ExclusionPath "C:\Users\bleponge\Documents\myrepos"
 Get-MpPreference | Select -Expand ExclusionPath
 ```  
   
-If you don't already have imported the following modules for you enumeration:    
+Git clone and run:    
 ```
 git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd .\Invoke-Recon
 .\Invoke-Recon.ps1 -Domain us.funcorp.local | Tee-Object -FilePath .\invoke-recon.txt
