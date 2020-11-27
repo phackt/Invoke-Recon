@@ -20,6 +20,7 @@ git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd 
 ## Domain Enumeration  
 
 - Find all DCs (check if ADWS are accessible in order to be able to use the Active Directory powershell module)
+	- check if gap between findings with DNS (SRV) enumeration and members of 'Domain Controllers' group
 - Password domain policy
 - Domains / forests trusts
 - All domain users / groups / computers
