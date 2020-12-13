@@ -1,5 +1,5 @@
 <#
-    Dirty script for powershell AD enumeration / quickwins using PowerView, PowerUpSql and Windows ActiveDirectory modules
+    Script for powershell AD enumeration / quickwins using PowerView, PowerUpSql and Windows ActiveDirectory modules
     
     Author: @phackt_ul
     License: BSD 3-Clause
@@ -12,7 +12,10 @@
 [CmdletBinding()]
 param(
   [Parameter(Mandatory=$true)]
-  [String]$Domain
+  [String]$Domain,
+  
+  [Parameter(Mandatory=$false)]
+  [String]$TargetDC
 )
 
 # ----------------------------------------------------------------
@@ -232,26 +235,35 @@ if ($nb_AllDCs -ne $nb_AllDCs_pw){
 # Testing if ADWS is up on PDC and port 389 is accessible
 
 # /!\ several SRV DNS entries for PDCs may exist
-$TargetDC = ($PDC | %{$_.IP4Address}) | Select-Object -First 1
-Write-ColorOutput yellow "[+] Target DC ip: $TargetDC"
+
+if (! $PSCmdlet.TargetDC){
+    $TargetDC = ($PDC | %{$_.IP4Address}) | Select-Object -First 1
+
+    Write-ColorOutput yellow "[+] Target DC ip: $TargetDC"
+} else {
+    Write-ColorOutput yellow "[+] Target DC ip explicitly set to: $TargetDC"
+}
 
 $adws = New-Object System.Net.Sockets.TCPClient -ArgumentList $TargetDC, 9389
 if (! $adws.Connected){
     Write-ColorOutput red "[!] ADWS on PDC $($TargetDC) are not accessible"
 
-    Write-Output "[+] Trying to find a DC with accessible ADWS..."
-    foreach($DCip in $($AllDCs.IP4Address | Sort-Object | Get-Unique)){
-        if ($DCip -ne $TargetDC){
-            $adws = New-Object System.Net.Sockets.TCPClient -ArgumentList $DCip, 9389
-            if ($adws.Connected){
-                Write-Output "[+] Target DC set to $($DCip)"
-                $TargetDC = $DCip
-                break
+    if (! $PSCmdlet.TargetDC){
+
+        Write-Output "[+] Trying to find a DC with accessible ADWS..."
+        foreach($DCip in $($AllDCs.IP4Address | Sort-Object | Get-Unique)){
+            if ($DCip -ne $TargetDC){
+                $adws = New-Object System.Net.Sockets.TCPClient -ArgumentList $DCip, 9389
+                if ($adws.Connected){
+                    Write-Output "[+] Target DC set to $($DCip)"
+                    $TargetDC = $DCip
+                    break
+                }
             }
         }
     }
 
-    if ($TargetDC -eq $PDC.IP4Address){
+    if (! $adws.Connected){
         Write-ColorOutput yellow "[+] Enumeration using Active Directory module may be limited"
     }
 }
@@ -635,7 +647,7 @@ Write-BigBanner -Text "Starting enumeration of MSSQL instances"
 
 Write-Banner -Text "Enumerate MSSQL instances (looking for SPN service class MSSQL)"
 $AllSQLInstances = Get-SQLInstanceDomain -IncludeIP -DomainController $TargetDC
-$AllSQLInstances | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumMSSQLDir\instances.csv" | ConvertFrom-Csv
+$AllSQLInstances | Output-Results -Path "$EnumMSSQLDir\instances" -Tee
 
 Write-Banner -Text "Are MSSQL instances accessible within current security context ?"
 $Instances = $AllSQLInstances | Get-SQLConnectionTestThreaded
@@ -673,7 +685,7 @@ Write-Banner -Text "Find MSSQL instances versions"
 foreach($Instance in $AccessibleInstances){ 
         Write-Output "`r`n[+] Instance: $Instance"
 
-        Get-SQLServerInfo -Instance $Instance | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumMSSQLDir\$Instance\version.csv" | ConvertFrom-Csv
+        Get-SQLServerInfo -Instance $Instance | Output-Results -Path "$EnumMSSQLDir\$Instance\version" -Tee
 }
 
 Write-Banner -Text "Find linked servers from each accessible MSSQL instances"
@@ -681,7 +693,7 @@ foreach($Instance in $AccessibleInstances){
         Write-Output "`r`n[+] Instance: $Instance"
 
         $LinkedServers = Get-SQLServerLinkCrawl -Instance $Instance | Select-Object Version,Instance,Sysadmin,@{Name="Path";Expression={($_.Path | Out-String).Trim()}},
-User,@{Name="Links";Expression={($_.Links | Out-String).Trim()}} | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumMSSQLDir\$Instance\linked_servers.csv" | ConvertFrom-Csv
+User,@{Name="Links";Expression={($_.Links | Out-String).Trim()}} | Output-Results -Path "$EnumMSSQLDir\$Instance\linked_servers" -Tee
 
         Write-Output $LinkedServers
 
@@ -722,7 +734,7 @@ Write-Banner -Text "MSSQL instances common credentials bruteforce"
 foreach($Instance in $AccessibleInstances){ 
         Write-Output "`r`n[+] Instance: $Instance"
 
-        Get-SQLServerLoginDefaultPw -Instance $Instance | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumMSSQLDir\$Instance\bruteforce_creds.csv" | ConvertFrom-Csv
+        Get-SQLServerLoginDefaultPw -Instance $Instance | Output-Results -Path "$EnumMSSQLDir\$Instance\bruteforce_creds" -Tee
 }
 
 Write-Banner -Text "Is xp_cmdshell enabled through linked servers of each accessible instances"
@@ -730,14 +742,14 @@ foreach($Instance in $AccessibleInstances){
         Write-Output "`r`n[+] Instance: $Instance"
 
         Get-SQLServerLinkCrawl -Instance $Instance -Query "SELECT CONVERT(INT, ISNULL(value, value_in_use)) AS 'is_XpCmdShell' FROM master.sys.configurations WHERE name like '%cmd%';" |
- select Version,Instance,Sysadmin,User -ExpandProperty CustomQuery | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumMSSQLDir\$Instance\linked_servers_xp_cmdshell_enabled.csv" | ConvertFrom-Csv
+ select Version,Instance,Sysadmin,User -ExpandProperty CustomQuery | Output-Results -Path "$EnumMSSQLDir\$Instance\linked_servers_xp_cmdshell_enabled" -Tee
 }
 
 Write-Banner -Text "Auditing each accessible MSSQL Instances"
 foreach($Instance in $AccessibleInstances){ 
         Write-Output "`r`n[+] Instance: $Instance"
 
-        Invoke-SQLAudit -Instance $Instance | ConvertTo-Csv -NoTypeInformation | Tee-Object -File "$EnumMSSQLDir\$Instance\audit.csv" | ConvertFrom-Csv
+        Invoke-SQLAudit -Instance $Instance | Output-Results -Path "$EnumMSSQLDir\$Instance\audit" -Tee
 }
 
 Write-Output "`r`n[!] Don't forget that you can use PowerSploit, RSAT AD and PowerUPSQL in your current powershell session"
