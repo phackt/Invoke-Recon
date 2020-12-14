@@ -12,7 +12,7 @@ Get-MpPreference | Select -Expand ExclusionPath
 Git clone and run:    
 ```
 git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd .\Invoke-Recon
-.\Invoke-Recon.ps1 -Domain us.funcorp.local | Tee-Object -FilePath .\invoke-recon.txt
+.\Invoke-Recon.ps1 -Domain us.funcorp.local | Tee-Object -FilePath .\us.funcorp.local.txt
 ```  
 
 # What we are looking for ?  
@@ -144,16 +144,16 @@ MemberSID               : S-1-5-21-3965405831-1015596948-2589850225-1122
 +------+------------------------------------------------+------+
 
 Version       : 15.1.1531
-FQDN          : MAIL01.funcorp.local
+FQDN          : MAIL01.us.funcorp.local
 Roles         : UM CAS MB HT
 Class         : top server msExchExchangeServer
 PrivExchange  : True
 CVE-2020-0688 : True
 
-[!] Exchange server MAIL01.funcorp.local vulnerable to PrivExchange
-[!] Exchange server MAIL01.funcorp.local vulnerable to CVE-2020-0688
+[!] Exchange server MAIL01.us.funcorp.local vulnerable to PrivExchange
+[!] Exchange server MAIL01.us.funcorp.local vulnerable to CVE-2020-0688
 
-[!] At least one WriteDacl right without InheritOnly on 'DC=phackt,DC=local' has been found (confirming privexchange attack)
+[!] At least one WriteDacl right without InheritOnly on 'DC=us,DC=funcorp,DC=local' has been found (confirming privexchange attack)
 
 ------+------------------------------------------------+------+
 | Computers with constrained delegation
@@ -168,12 +168,12 @@ CVE-2020-0688 : True
 
 
 +------+------------------------------------------------+------+
-| Finding principals (RID > 1000) with permissive rights on 'CN=Users,DC=phackt,DC=local' (DS-Replication-Get-Changes-All|WriteProperty|GenericAll|GenericWrite|WriteDacl|WriteOwner)
+| Finding principals (RID > 1000) with permissive rights on 'CN=Users,DC=us,DC=funcorp,DC=local' (DS-Replication-Get-Changes-All|WriteProperty|GenericAll|GenericWrite|WriteDacl|WriteOwner)
 +------+------------------------------------------------+------+
 [!] Filtering out 'OU=Microsoft Exchange Security Groups'
 
 AceType               : AccessAllowed
-ObjectDN              : CN=Users,DC=phackt,DC=local
+ObjectDN              : CN=Users,DC=us,DC=funcorp,DC=local
 ActiveDirectoryRights : ListChildren, ReadProperty, GenericWrite
 OpaqueLength          : 0
 ObjectSID             :
@@ -182,12 +182,12 @@ BinaryLength          : 36
 IsInherited           : False
 IsCallback            : False
 PropagationFlags      : None
-SecurityIdentifier    : S-1-5-21-3816950244-2414788102-2833019223-1602
+SecurityIdentifier    : S-1-5-21-3965405831-1015596948-2589850225-1602
 AccessMask            : 131132
 AuditFlags            : None
 AceFlags              : None
 AceQualifier          : AccessAllowed
-PrincipalDN           : CN=batman,CN=Users,DC=phackt,DC=local
+PrincipalDN           : CN=user01,CN=Users,DC=us,DC=funcorp,DC=local
 
 
 +------+------------------------------------------------+------+
