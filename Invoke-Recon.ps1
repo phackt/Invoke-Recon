@@ -748,5 +748,3 @@ foreach($Instance in $AccessibleInstances){
 
         Invoke-SQLAudit -Instance $Instance | Output-Results -Path "$EnumMSSQLDir\$Instance\audit" -Tee
 }
-
-Write-Output "`r`n[!] Don't forget that you can use PowerSploit, RSAT AD and PowerUPSQL in your current powershell session"
