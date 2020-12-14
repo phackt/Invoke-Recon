@@ -39,6 +39,8 @@ function Import-CustomModule($ScriptPath, $ModuleName){
 if (-Not ((Get-Module -Name "PowerSploit") -ne $null -or (Get-Module -Name "PowerView") -ne $null)){
     Write-Output "[+] PowerSploit module not found. Importing ..."
     Import-CustomModule $PSScriptRoot\modules\PowerSploit\PowerSploit.psm1 PowerSploit
+
+    # https://github.com/PowerShellMafia/PowerSploit/issues/363
 }
 
 if ((Get-Module -Name "Microsoft.ActiveDirectory.Management") -eq $null){
@@ -156,12 +158,15 @@ function Output-Results {
     }
 
     End {
-        $Array | Export-CSV -NoTypeInformation -Path "$CSVPath"
-        if($Tee){
-            $Array | Tee-Object -File "$TXTPath"    
-        } else {
-            $Array | Out-File "$TXTPath"
-        }
+         if ( $Array -ne $null ){
+              $Array | Export-CSV -NoTypeInformation -Path "$CSVPath"
+             if($Tee){
+                 $Array | Tee-Object -File "$TXTPath"    
+             } else {
+                 $Array | Out-File "$TXTPath"
+             }
+         }
+
     }
 }
 
@@ -205,6 +210,16 @@ foreach ($OutputDir in $OutputDirs){
 
 Write-BigBanner -Text "Starting enumeration of domain $Domain"
 
+if ($PSBoundParameters.ContainsKey('TargetDC')){
+    $DCSMB = New-Object System.Net.Sockets.TCPClient -ArgumentList $TargetDC, 445
+
+    if(! $DCSMB.Connected){
+        throw "DC $TargetDC is not accessible. Exiting."
+    }
+}
+
+$adws = New-Object System.Net.Sockets.TCPClient -ArgumentList $TargetDC, 9389
+
 # PDC concept may be a bit oldschool
 Write-Banner -Text "Looking for PDC (DNS enum)"
 $PDC = Resolve-DnsName -DnsOnly -Type SRV _ldap._tcp.pdc._msdcs.$Domain
@@ -236,19 +251,19 @@ if ($nb_AllDCs -ne $nb_AllDCs_pw){
 
 # /!\ several SRV DNS entries for PDCs may exist
 
-if (! $PSCmdlet.TargetDC){
+if (! $PSBoundParameters.ContainsKey('TargetDC')){
     $TargetDC = ($PDC | %{$_.IP4Address}) | Select-Object -First 1
 
     Write-ColorOutput yellow "[+] Target DC ip: $TargetDC"
 } else {
-    Write-ColorOutput yellow "[+] Target DC ip explicitly set to: $TargetDC"
+    Write-ColorOutput yellow "[+] Target DC IP explicitly set to: $TargetDC"
 }
 
 $adws = New-Object System.Net.Sockets.TCPClient -ArgumentList $TargetDC, 9389
 if (! $adws.Connected){
     Write-ColorOutput red "[!] ADWS on PDC $($TargetDC) are not accessible"
 
-    if (! $PSCmdlet.TargetDC){
+    if (! $PSBoundParameters.ContainsKey('TargetDC')){
 
         Write-Output "[+] Trying to find a DC with accessible ADWS..."
         foreach($DCip in $($AllDCs.IP4Address | Sort-Object | Get-Unique)){
@@ -480,7 +495,7 @@ foreach($ExchangeServer in $ExchangeServers){
 # /!\ Also, we want to confirm that the WriteDacl right has not been manually set with the flag InheritOnly for the group 'Exchange Windows Permissions'
 
 $sidEWP = $(Get-DomainGroup 'Exchange Windows Permissions' -Properties objectsid).objectsid
-$AtLeastOneWithoutInheritOnlyWriteDac = Get-DomainObjectAcl $RootDSE.defaultNamingContext | ? { ($_.SecurityIdentifier -match "$sidEWP") -and ($_.ActiveDirectoryRights -match 'WriteDacl') -and -not ($_.AceFlags -match 'InheritOnly') }
+$AtLeastOneWithoutInheritOnlyWriteDac = Get-DomainObjectAcl $RootDSE.defaultNamingContext | ? { ($_.SecurityIdentifier -imatch "$sidEWP") -and ($_.ActiveDirectoryRights -imatch 'WriteDacl') -and -not ($_.AceFlags -imatch 'InheritOnly') }
 
 if($AtLeastOneWithoutInheritOnlyWriteDac) {
     Write-ColorOutput yellow "`r`n[!] At least one WriteDacl right without InheritOnly on '$($RootDSE.defaultNamingContext)' has been found (confirming privexchange attack)"
@@ -524,7 +539,7 @@ $KerberoastableUsers = Get-DomainUser -SPN -Domain $Domain -Server $TargetDC | W
 $KerberoastableUsers | Output-Results -Path "$QuickWinsDir\kerberoastable_all" -Tee
 
 Write-Banner -Text "Kerberoastable users members of DA"
-Get-DomainUser -SPN -Domain $Domain -Server $TargetDC | ?{$_.memberof -match $DomainAdminsGroup.samaccountname -and $_.samaccountname -ne 'krbtgt'} | Output-Results -Path "$QuickWinsDir\kerberoastable_da" -Tee
+Get-DomainUser -SPN -Domain $Domain -Server $TargetDC | ?{$_.memberof -imatch $DomainAdminsGroup.samaccountname -and $_.samaccountname -ne 'krbtgt'} | Output-Results -Path "$QuickWinsDir\kerberoastable_da" -Tee
 
 Write-Banner -Text "Kerberoasting all users"
 if($KerberoastableUsers){
@@ -597,40 +612,22 @@ Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC
 # Find principals (RID >= 1000) with Replicating Directory Changes / Replicating Directory Changes All or GenericAll set on the domain root
 #
 
-Write-Banner -Text "Finding principals who can DCSync ('replication-get' or 'GenericAll' on $($RootDSE.defaultNamingContext))"
-$DefaultNamingContext = $RootDSE.defaultNamingContext
-cd "AD:\$DefaultNamingContext"
+$containers = @("$($RootDSE.defaultNamingContext)","CN=Users,$($RootDSE.defaultNamingContext)","CN=Computers,$($RootDSE.defaultNamingContext)")
 
-if ((Get-Location).Path -eq "$CurDir"){
-    Get-DomainObjectAcl $RootDSE.defaultNamingContext -ResolveGUIDs | ?{($_.ObjectType -match 'replication-get') -or ($_.ActiveDirectoryRights -match 'GenericAll')}
-} else
-{
-    $AllReplACLs = (Get-AcL).Access | Where-Object {$_.ObjectType -eq '1131f6ad-9c07-11d1-f79f-00c04fc2dcd2' -or $_.ObjectType -eq '1131f6aa-9c07-11d1-f79f-00c04fc2dcd2'}
+$containers |foreach {
 
-    foreach ($ACL in $AllReplACLs)
-    {
-        $user = New-Object System.Security.Principal.NTAccount($ACL.IdentityReference)
-        $SID = $user.Translate([System.Security.Principal.SecurityIdentifier])
-        $RID = $SID.ToString().Split("f-")[7]
+     Write-Banner -Text "Finding principals (RID > 1000) with permissive rights on '$_' (DS-Replication-Get-Changes-All|WriteProperty|GenericAll|GenericWrite|WriteDacl|WriteOwner)"
+     Write-Output "[!] Filtering out 'OU=Microsoft Exchange Security Groups'"
 
-        #Filter this list to RIDs above 1000 which will exclude well-known Administrator groups
-        if([int]$RID -ge 1000)
-        {
-            $ReplicatingRight = ''
-            if($ACL.ObjectType -eq '1131f6ad-9c07-11d1-f79f-00c04fc2dcd2'){
-                $ReplicatingRight = 'DS-Replication-Get-Changes-All'
-            }
-
-            if($ACL.ObjectType -eq '1131f6aa-9c07-11d1-f79f-00c04fc2dcd2'){
-                $ReplicatingRight = 'DS-Replication-Get-Changes'
-            }
-
-            Write-Output "[+] Permission '$ReplicatingRight' granted to '$($ACL.IdentityReference)'"
-            # $ACL.RemoveAccessRule($ACL.Access)
-        }
-    }
-
-    cd "$CurDir"
+     Get-DomainObjectAcl "$_" -ResolveGUIDs | ?{
+          ($_.AceType -match 'AccessAllowed') -and `
+          ($_.SecurityIdentifier -match '^S-1-5-.*-[0-9]\d{3,}$') -and ( `
+          ($_.ObjectType -imatch 'replication-get') -or `
+          ($_.ActiveDirectoryRights -imatch 'WriteProperty|GenericAll|GenericWrite|WriteDacl|WriteOwner'))
+          } | % {
+              $_ | Add-Member Noteproperty 'PrincipalDN' $(Convert-ADName $_.SecurityIdentifier -OutputType DN)
+              $_ | ?{ $_.PrincipalDN -inotlike '*OU=Microsoft Exchange Security Groups*' }
+          } | Output-Results -Path "$QuickWinsDir\permissive_acls" -Tee
 }
 
 # ----------------------------------------------------------------

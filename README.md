@@ -45,9 +45,8 @@ git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd 
 - Computers with deprecated OS
 - Users with Kerberos PreAuth disables (AS_REP Roasting)
 - Kerberoastable users
-- Principals (RID >= 1000) with the following rights on root domain :
-	- Replicating Directory Changes / Replicating Directory Changes All
-	- GenericAll  
+- Principals (RID >= 1000) with the following rights on **root domain**, **CN=Users** and **CN=Computers** containers:
+	- DS-Replication-Get-Changes-All|WriteProperty|GenericAll|GenericWrite|WriteDacl|WriteOwner
 
 
 ## MSSQL Enumeration  
@@ -60,6 +59,11 @@ git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd 
 - Audit each accessible MSSQL Instances for common high impact vulnerabilities and weak configurations
 
 # Run  
+Parameters:
+- ```-Domain```: domain to enumerate
+- ```-TargetDC```: specify target DC IP
+  
+Example:  
 ```
 .\Invoke-Recon.ps1 -Domain us.funcorp.local | Tee-Object -FilePath .\invoke-recon.txt
 
@@ -75,7 +79,7 @@ git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd 
 ################################################################
 
 +------+------------------------------------------------+------+
-| Searching PDC
+| Searching PDC (DNS enum)
 +------+------------------------------------------------+------+
 
 Name                                     Type   TTL   Section    NameTarget                     Priority Weight Port
@@ -90,7 +94,7 @@ IP4Address : 192.168.2.1
 
 
 +------+------------------------------------------------+------+
-| Searching all DCs
+| Searching all DCs (DNS enum)
 +------+------------------------------------------------+------+
 _ldap._tcp.dc._msdcs.us.funcorp.local    SRV    600   Answer     UFC-DC1.us.funcorp.local       0        100    389
 
@@ -149,6 +153,13 @@ CVE-2020-0688 : True
 [!] Exchange server MAIL01.funcorp.local vulnerable to PrivExchange
 [!] Exchange server MAIL01.funcorp.local vulnerable to CVE-2020-0688
 
+[!] At least one WriteDacl right without InheritOnly on 'DC=phackt,DC=local' has been found (confirming privexchange attack)
+
+------+------------------------------------------------+------+
+| Computers with constrained delegation
++------+------------------------------------------------+------+
+...
+
 
 ------+------------------------------------------------+------+
 | Computers with constrained delegation and protocol transition
@@ -157,23 +168,35 @@ CVE-2020-0688 : True
 
 
 +------+------------------------------------------------+------+
-| Users with constrained delegation and protocol transition
+| Finding principals (RID > 1000) with permissive rights on 'CN=Users,DC=phackt,DC=local' (DS-Replication-Get-Changes-All|WriteProperty|GenericAll|GenericWrite|WriteDacl|WriteOwner)
++------+------------------------------------------------+------+
+[!] Filtering out 'OU=Microsoft Exchange Security Groups'
+
+AceType               : AccessAllowed
+ObjectDN              : CN=Users,DC=phackt,DC=local
+ActiveDirectoryRights : ListChildren, ReadProperty, GenericWrite
+OpaqueLength          : 0
+ObjectSID             :
+InheritanceFlags      : None
+BinaryLength          : 36
+IsInherited           : False
+IsCallback            : False
+PropagationFlags      : None
+SecurityIdentifier    : S-1-5-21-3816950244-2414788102-2833019223-1602
+AccessMask            : 131132
+AuditFlags            : None
+AceFlags              : None
+AceQualifier          : AccessAllowed
+PrincipalDN           : CN=batman,CN=Users,DC=phackt,DC=local
+
+
++------+------------------------------------------------+------+
+| Auditing each accessible MSSQL Instances
 +------+------------------------------------------------+------+
 ...
 
 
-+------+------------------------------------------------+------+
-| Managed Service Accounts with constrained delegation and protocol transition
-+------+------------------------------------------------+------+
-...
-
-
-+------+------------------------------------------------+------+
-| Finding principals with replicating permissions
-+------+------------------------------------------------+------+
-...
-
-[more]
+[much more]
 ```
 
 # Support
