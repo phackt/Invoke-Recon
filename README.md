@@ -27,14 +27,13 @@ git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd 
 - All domain users / groups / computers
 - Privileged users with RID >= 1000 (recursive lookups for nested members of privileged groups, not AdminCount = 1 to avoid orphans)
 - DNSAdmins group members
-- Users / computers / Managed Service Accounts with :
+- Principals with :
 	- unconstrained delegation (T4D)
-	- constrained delegation
+	- constrained delegation (also resource based - msDS-AllowedToActOnBehalfOfOtherIdentity)
 	- constrained delegation with protocol transition (T2A4D)
-- Services with msDS-AllowedToActOnBehalfOfOtherIdentity
 - Exchange servers
-	- Confirm WriteDAC on root domain without InheritOnly
-	- Users with mailboxes  
+	- confirm WriteDAC on root domain without InheritOnly
+	- list users with mailboxes  
 
 
 ## Quick Wins  
