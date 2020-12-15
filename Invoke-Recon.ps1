@@ -13,9 +13,10 @@
 param(
   [Parameter(Mandatory=$true)]
   [String]$Domain,
-  
   [Parameter(Mandatory=$false)]
-  [String]$TargetDC
+  [String]$TargetDC,
+  [Parameter(Mandatory=$false)]
+  [Switch]$Quick
 )
 
 # ----------------------------------------------------------------
@@ -66,7 +67,6 @@ if ((Get-Module -Name "GadgetExchange") -eq $null){
     Write-Output "[+] GadgetExchange module not found. Importing ..."
     Import-CustomModule "$PSScriptRoot\modules\GadgetExchange.psm1" GadgetExchange
 }
-
 
 # ----------------------------------------------------------------
 # ----------------------------------------------------------------
@@ -322,17 +322,23 @@ Get-DomainTrust -Domain $Domain -Server $TargetDC
 Write-Banner -Text "Get-ForestTrust"
 Get-ForestTrust -Forest $Forest.Name
 
-Write-Banner -Text "Get-DomainUser"
-Write-Output "[saving into ""$EnumDir\users.*""]"
-Get-DomainUser -Domain $Domain -Server $TargetDC | Output-Results -Path "$EnumDir\users"
+# If -Quick, skipping what can take a lot of time on large domains
 
-Write-Banner -Text "Get-DomainGroup"
-Write-Output "[saving into ""$EnumDir\groups.*""]"
-Get-DomainGroup -Domain $Domain -Server $TargetDC | Output-Results -Path "$EnumDir\groups"
+if(! $PSBoundParameters.ContainsKey('Quick')){
+    Write-Banner -Text "Get-DomainUser"
+    Write-Output "[saving into ""$EnumDir\users.*""]"
+    Get-DomainUser -Domain $Domain -Server $TargetDC | Output-Results -Path "$EnumDir\users"
 
-Write-Banner -Text "Get-DomainComputer"
-Write-Output "[saving into ""$EnumDir\computers.*""]"
-Get-DomainComputer -Domain $Domain -Server $TargetDC | Output-Results -Path "$EnumDir\computers"
+    Write-Banner -Text "Get-DomainGroup"
+    Write-Output "[saving into ""$EnumDir\groups.*""]"
+    Get-DomainGroup -Domain $Domain -Server $TargetDC | Output-Results -Path "$EnumDir\groups"
+
+    Write-Banner -Text "Get-DomainComputer"
+    Write-Output "[saving into ""$EnumDir\computers.*""]"
+    Get-DomainComputer -Domain $Domain -Server $TargetDC | Output-Results -Path "$EnumDir\computers"
+} else {
+    Write-ColorOutput yellow "`r`n[+] Skipping Users, Groups and Computers enumeration"
+}
 
 #
 # Privileged accounts
@@ -357,44 +363,6 @@ $AccountOperatorsGroup = Get-DomainGroup -Domain $Domain -Server $TargetDC "S-1-
 $BackupOperatorsGroup = Get-DomainGroup -Domain $Domain -Server $TargetDC "S-1-5-32-551"
 
 $AdministratorsGroup.objectsid,$DomainAdminsGroup.objectsid,$EnterpriseAdminsGroup.objectsid,$SchemaAdminsGroup.objectsid,$AccountOperatorsGroup.objectsid,$BackupOperatorsGroup.objectsid | Get-DomainGroupMember -Recurse -Domain $Domain -Server $TargetDC 2> $null | Where-Object {($_.MemberObjectClass -eq "user") -and ([int]$_.MemberSID.split("-")[7] -ge 1000)} | Sort MemberSID -Unique | Output-Results -Path "$EnumDir\privileged_accounts" -Tee
-
-<#
-foreach($pa in $PrivilegedAccounts){
-
-#
-# Can be delegated ?
-#
-
-#
-# Has delegation ?
-#
-
-#
-# Can be AS_REP Roastable ?
-#
-
-#
-# Is kerberoastable ?
-#
-
-#
-# Has Replicating Directory Changes / Replicating Directory Changes All ?
-#
-
-#
-# permissive ACLs on it
-#
-
-#
-# logon sessions
-#
-
-#
-# others ...
-#
-
-}
-#>
 
 #
 # DNSAdmins members
@@ -499,14 +467,11 @@ $AtLeastOneWithoutInheritOnlyWriteDac = Get-DomainObjectAcl $RootDSE.defaultNami
 
 if($AtLeastOneWithoutInheritOnlyWriteDac) {
     Write-ColorOutput yellow "`r`n[!] At least one WriteDacl right without InheritOnly on '$($RootDSE.defaultNamingContext)' has been found (confirming privexchange attack)"
+    Write-ColorOutput yellow "`r`n    Now you just need a compromised user with a mailbox:"
+    Write-ColorOutput yellow "    Get-ADUser -SearchBase $($RootDSE.defaultNamingContext) -Server $($TargetDC) -LDAPFilter '(msExchMailboxGuid=*)'"
 }else{
     Write-ColorOutput red "`r`n[!] If some exchange servers has been found vulnerable, the right 'WriteDacl' appears to be InheritOnly"
 }
-
-Write-Banner -Text "Looking for users having a mailbox"
-Write-Output "[saving into ""$EnumDir\users_with_mailbox.*""]"
-Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -LDAPFilter "(msExchMailboxGuid=*)" | Output-Results -Path "$EnumDir\users_with_mailbox"
-
 
 # ----------------------------------------------------------------
 # ----------------------------------------------------------------
@@ -557,7 +522,6 @@ if($KerberoastableUsers){
     Write-Output "[+] No kerberoastable users"
 }
 
-
 #
 # Kerberos delegation - unconstrained
 #
@@ -587,6 +551,8 @@ Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC
 #
 # Kerberos delegation - constrained with protocol transition
 #
+# https://phackt.com/delegation-contrainte-kerberos-avec-transition-protocole
+#
 
 Write-Banner -Text "Computers with constrained delegation and protocol transition"
 Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {TrustedToAuthForDelegation -eq $True} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\constrained_t2a4d_computers" -Tee
@@ -599,6 +565,8 @@ Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC
 
 #
 # Find services with msDS-AllowedToActOnBehalfOfOtherIdentity
+#
+# Resource Based Constrained Delegation
 #
 
 Write-Banner -Text "Finding services with msDS-AllowedToActOnBehalfOfOtherIdentity"

@@ -61,6 +61,7 @@ git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd 
 Parameters:
 - ```-Domain```: domain to enumerate
 - ```-TargetDC```: specify target DC IP
+- ```-Quick```: skip raw enumeration for users, groups and computers (useful on large domains)
   
 Example:  
 ```
