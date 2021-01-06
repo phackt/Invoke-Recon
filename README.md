@@ -1,5 +1,5 @@
 # Invoke-Recon
-Powershell script as a first big step for domain enumeration. Quickwins focused.  
+Powershell script as a first big step for AD enumeration. Quickwins focused.  
 Because typing the same Powershell commands over and over is tedious.  
 
 # Prerequisites  
