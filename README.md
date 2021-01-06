@@ -1,5 +1,5 @@
 # Invoke-Recon
-Powershell script as a first step for domain enumeration. Tries to spot quickwins.  
+Powershell script as a first big step for domain enumeration. Quickwins focused.  
 Just because i'm tired to type the same AD / PowerView commands over and over.  
 
 # Prerequisites  
