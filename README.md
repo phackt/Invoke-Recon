@@ -36,7 +36,7 @@ git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd 
 	- list users with mailboxes  
 
 
-## Quick Wins  
+## But also...  
 
 - Exchange vulnerable to :
 	- PrivExchange (CVE-2018-8581)
