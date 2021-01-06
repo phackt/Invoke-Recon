@@ -1,6 +1,6 @@
 # Invoke-Recon
 Powershell script as a first big step for domain enumeration. Quickwins focused.  
-Because we are tired of typing the same Powershell commands over and over.  
+Because typing the same Powershell commands over and over is tedious.  
 
 # Prerequisites  
 You may want to exclude your tools directory from Defender (if you clone submodules for examples):  
