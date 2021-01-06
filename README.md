@@ -48,7 +48,7 @@ git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd 
 	- DS-Replication-Get-Changes-All|WriteProperty|GenericAll|GenericWrite|WriteDacl|WriteOwner
 
 
-## MSSQL Enumeration  
+## And MSSQL Enumeration  
 
 - Enumerates MSSQL instances (looking for SPN service class MSSQL)
 - Find MSSQL instances accessible within current security context and get their versions
