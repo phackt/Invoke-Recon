@@ -45,7 +45,7 @@ git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd 
 - Users with Kerberos PreAuth disables (AS_REP Roasting)
 - Kerberoastable users
 - Principals (RID >= 1000) with the following rights on **root domain**, **CN=Users** and **CN=Computers** containers:
-	- DS-Replication-Get-Changes-All|WriteProperty|GenericAll|GenericWrite|WriteDacl|WriteOwner
+	- DS-Replication-Get-Changes-All|WriteProperty|GenericAll|GenericWrite|WriteDacl|WriteOwner|User-Change-Password|User-Force-Change-Password
 
 
 ## And MSSQL Enumeration  

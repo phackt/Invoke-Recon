@@ -577,20 +577,21 @@ Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {
 Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {msDS-AllowedToActOnBehalfOfOtherIdentity -like '*'} -Properties msDS-AllowedToActOnBehalfOfOtherIdentity,servicePrincipalName,Description | Output-Results -Path "$QuickWinsDir\actonbehalf_msa" -Tee
 
 #
-# Find principals (RID >= 1000) with Replicating Directory Changes / Replicating Directory Changes All or GenericAll set on the domain root
+# Find principals (RID >= 1000) with permissive rights
 #
 
 $containers = @("$($RootDSE.defaultNamingContext)","CN=Users,$($RootDSE.defaultNamingContext)","CN=Computers,$($RootDSE.defaultNamingContext)")
 
 $containers |foreach {
 
-     Write-Banner -Text "Finding principals (RID > 1000) with permissive rights on '$_' (DS-Replication-Get-Changes-All|WriteProperty|GenericAll|GenericWrite|WriteDacl|WriteOwner)"
+     Write-Banner -Text "Finding principals (RID > 1000) with permissive rights on '$_' (DS-Replication-Get-Changes-All|WriteProperty|GenericAll|GenericWrite|WriteDacl|WriteOwner|User-Change-Password|User-Force-Change-Password)"
      Write-Output "[!] Filtering out 'OU=Microsoft Exchange Security Groups'"
 
      Get-DomainObjectAcl "$_" -ResolveGUIDs | ?{
-          ($_.AceType -match 'AccessAllowed') -and `
+          ($_.AceQualifier -match 'AccessAllowed') -and `
           ($_.SecurityIdentifier -match '^S-1-5-.*-[0-9]\d{3,}$') -and ( `
-          ($_.ObjectType -imatch 'replication-get') -or `
+          ($_.ObjectAceType -imatch 'replication-get') -or `
+          ($_.ObjectAceType -ilike 'User-*Change-Password') -or `
           ($_.ActiveDirectoryRights -imatch 'WriteProperty|GenericAll|GenericWrite|WriteDacl|WriteOwner'))
           } | % {
               $_ | Add-Member Noteproperty 'PrincipalDN' $(Convert-ADName $_.SecurityIdentifier -OutputType DN)
