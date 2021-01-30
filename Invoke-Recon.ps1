@@ -37,9 +37,9 @@ function Import-CustomModule($ScriptPath, $ModuleName){
     Importing main modules
 #>
 
-if (-Not ((Get-Module -Name "PowerSploit") -ne $null -or (Get-Module -Name "PowerView") -ne $null)){
+if (-Not ((Get-Module -Name "PowerSploit") -ne $null -or (Get-Module -Name "PowerView") -ne $null -or (Get-Module -Name "Recon") -ne $null)){
     Write-Output "[+] PowerSploit module not found. Importing ..."
-    Import-CustomModule $PSScriptRoot\modules\PowerSploit\PowerSploit.psm1 PowerSploit
+    Import-CustomModule $PSScriptRoot\modules\PowerSploit\Recon\Recon.psd1 Recon
 
     # https://github.com/PowerShellMafia/PowerSploit/issues/363
 }
@@ -321,6 +321,16 @@ Get-DomainTrust -Domain $Domain -Server $TargetDC
 
 Write-Banner -Text "Get-ForestTrust"
 Get-ForestTrust -Forest $Forest.Name
+
+Write-Banner -Text "Is LAPS installed (CN=ms-mcs-admpwd,$($RootDSE.schemaNamingContext))"
+$islaps = Get-DomainObject "ms-Mcs-AdmPwd" -SearchBase "$($RootDSE.schemaNamingContext)"
+
+if($islaps){
+    Write-ColorOutput green "`r`n[+] LAPS installed"
+}else
+{
+    Write-ColorOutput red "`r`n[!] LAPS not installed"
+}
 
 # If -Quick, skipping what can take a lot of time on large domains
 
