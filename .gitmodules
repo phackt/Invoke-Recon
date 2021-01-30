@@ -1,6 +1,6 @@
 [submodule "modules/PowerSploit"]
 	path = modules/PowerSploit
-	url = https://github.com/PowerShellMafia/PowerSploit.git
+	url = https://github.com/phackt/PowerSploit.git
 	branch = dev
 [submodule "modules/ADModule"]
 	path = modules/ADModule
