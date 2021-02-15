@@ -481,7 +481,7 @@ foreach($ExchangeServer in $ExchangeServers){
 # /!\ Also, we want to confirm that the WriteDacl right has not been manually set with the flag InheritOnly for the group 'Exchange Windows Permissions'
 
 $sidEWP = $(Get-DomainGroup 'Exchange Windows Permissions' -Properties objectsid).objectsid
-$AtLeastOneWithoutInheritOnlyWriteDac = Get-DomainObjectAcl $RootDSE.defaultNamingContext | ? { ($_.SecurityIdentifier -imatch "$sidEWP") -and ($_.ActiveDirectoryRights -imatch 'WriteDacl') -and -not ($_.AceFlags -imatch 'InheritOnly') }
+$AtLeastOneWithoutInheritOnlyWriteDac = Get-DomainObjectAcl $RootDSE.defaultNamingContext | ? { ("$sidEWP" -ne "") -and ($_.SecurityIdentifier -imatch "$sidEWP") -and ($_.ActiveDirectoryRights -imatch 'WriteDacl') -and -not ($_.AceFlags -imatch 'InheritOnly') }
 
 if($AtLeastOneWithoutInheritOnlyWriteDac) {
     Write-ColorOutput yellow "`r`n[!] At least one WriteDacl right without InheritOnly on '$($RootDSE.defaultNamingContext)' has been found (confirming privexchange attack)"
