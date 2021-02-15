@@ -288,7 +288,15 @@ $RootDSE = Get-ADRootDSE -Server $TargetDC
 # Test if RootDSE is null to construct the namingContext
 
 if ($RootDSE -eq $null){
-    Write-Output "[!] Root DSE can not be retrieved !"
+    # Setting manually the naming contexts
+    $RootDSE = @{}
+    $RootDSE.defaultNamingContext = ([ADSI]"LDAP://RootDSE").defaultNamingContext
+    $RootDSE.configurationNamingContext = ([ADSI]"LDAP://RootDSE").configurationNamingContext
+    $RootDSE.schemaNamingContext = ([ADSI]"LDAP://RootDSE").schemaNamingContext
+
+    if ($RootDSE.count -eq 0){
+        Write-Output "[!] Root DSE can not be retrieved !"
+    }
 }
 
 Write-Banner -Text "Members of the DCs 'Domain Local' group Administrators"
