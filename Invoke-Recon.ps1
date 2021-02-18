@@ -504,7 +504,7 @@ Write-BigBanner -Text "Looking for interesting stuff"
 #
 
 Write-Banner -Text "End-of-support Operating Systems (MS17-010)"
-Get-DomainComputer -Domain $Domain -Server $TargetDC |  Where-Object {($_.OperatingSystem -like "*XP*") -or ($_.OperatingSystem -like "*Vista*") -or ($_.OperatingSystem -like "*2003*") -or ($_.OperatingSystem -like "*Windows 7*") -or ($_.OperatingSystem -like "*Windows 8*")} | Output-Results -Path "$QuickWinsDir\deprecated_os" -Tee
+Get-DomainComputer -Domain $Domain -Server $TargetDC |  Where-Object {($_.OperatingSystem -like "*XP*") -or ($_.OperatingSystem -like "*Vista*") -or ($_.OperatingSystem -like "*2000*") -or ($_.OperatingSystem -like "*Windows 7*") -or ($_.OperatingSystem -like "*Windows 8*") -or ($_.OperatingSystem -like "*ME*") -or ($_.OperatingSystem -like "*2003*") -or ($_.OperatingSystem -like "*2008*")} | Output-Results -Path "$QuickWinsDir\deprecated_os" -Tee
 
 #
 # AS_REP Roasting - no kerberos preauth
