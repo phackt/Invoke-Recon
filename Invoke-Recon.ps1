@@ -38,8 +38,8 @@ function Import-CustomModule($ScriptPath, $ModuleName){
 #>
 
 if (-Not ((Get-Module -Name "PowerSploit") -ne $null -or (Get-Module -Name "PowerView") -ne $null -or (Get-Module -Name "Recon") -ne $null)){
-    Write-Output "[+] PowerSploit module not found. Importing ..."
-    Import-CustomModule $PSScriptRoot\modules\PowerSploit\Recon\Recon.psd1 Recon
+    Write-Output "[+] PowerSploit module not found. Importing from obfuscated b64 file ..."
+    iex([System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($(Get-Content $PSScriptRoot\modules\pviewb64.txt))))
 
     # https://github.com/PowerShellMafia/PowerSploit/issues/363
 }

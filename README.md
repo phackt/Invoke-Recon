@@ -3,12 +3,6 @@ Powershell script as a first big step for AD enumeration. Quickwins focused.
 Because typing the same Powershell commands over and over is tedious.  
 
 # Prerequisites  
-You may want to exclude your tools directory from Defender (this tool uses PowerView as a submodule):  
-```
-Add-MpPreference -ExclusionPath "C:\Users\bleponge\Documents\myrepos"
-Get-MpPreference | Select -Expand ExclusionPath
-```  
-
 Git clone and run:    
 ```
 git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd .\Invoke-Recon
