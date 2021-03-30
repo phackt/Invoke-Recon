@@ -334,10 +334,7 @@ Write-Banner -Text "Is LAPS installed (CN=ms-mcs-admpwd,$($RootDSE.schemaNamingC
 $islaps = Get-DomainObject "ms-Mcs-AdmPwd" -SearchBase "$($RootDSE.schemaNamingContext)"
 
 if($islaps){
-    Write-ColorOutput green "`r`n[+] LAPS installed"
-}else
-{
-    Write-ColorOutput red "`r`n[!] LAPS not installed"
+    Write-ColorOutput green "`r`n[+] LAPS schema extension detected"
 }
 
 # If -Quick, skipping what can take a lot of time on large domains
@@ -469,7 +466,7 @@ foreach($ExchangeServer in $ExchangeServers){
 
     #Checking if server is vuln
     if($ExchangeServer.PrivExchange -eq $true){
-    Write-ColorOutput yellow "[!] Exchange server $($ExchangeServer.FQDN) vulnerable to PrivExchange"
+        Write-ColorOutput yellow "[!] Exchange server $($ExchangeServer.FQDN) vulnerable to PrivExchange"
     }
 
     #Checking if server is vuln
@@ -545,7 +542,30 @@ if($KerberoastableUsers){
 #
 
 Write-Banner -Text "Computers with unconstrained delegation - skip DCs"
-Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {(TrustedForDelegation -eq $True) -AND (PrimaryGroupID -eq 515)} -Properties TrustedForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\unconstrained_computers" -Tee
+$computers_with_T4D = Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {(TrustedForDelegation -eq $True) -AND (PrimaryGroupID -eq 515)} -Properties TrustedForDelegation,servicePrincipalName,Description
+$computers_with_T4D | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\unconstrained_computers" -Tee
+
+Write-Banner -Text "Looking for dangerous rights on computers with unconstrained delegation"
+
+$computers_with_T4D_and_additionaldnshostnames_writable = ($computers_with_T4D |foreach {
+    Get-DomainObjectAcl "$($_.DistinguishedName)" -ResolveGUIDs | ?{
+        ($_.AceQualifier -match 'AccessAllowed') -and `
+        ($_.SecurityIdentifier -match '^S-1-5-.*-[0-9]\d{3,}$') -and ( `
+        ($_.ObjectAceType -ilike 'User-*Change-Password') -or `
+        ($_.ActiveDirectoryRights -imatch 'GenericAll|GenericWrite|WriteDacl|WriteOwner') -or `
+        (($_.ActiveDirectoryRights -imatch 'WriteProperty') -and ($_.ObjectAceType -imatch 'ms-DS-Additional-Dns-Host-Name')))
+        } | % {
+          $_ | Add-Member Noteproperty 'TrusteeDN' $(Convert-ADName $_.SecurityIdentifier -OutputType DN)
+          $_ | ?{ $_.TrusteeDN -inotlike '*OU=Microsoft Exchange Security Groups*' }
+        }
+})
+
+if($computers_with_T4D_and_additionaldnshostnames_writable){
+    $computers_with_T4D_and_additionaldnshostnames_writable
+
+    Write-ColorOutput yellow "[!] Found computers with unconstrained delegation and dangerous rights"
+    Write-ColorOutput yellow "[!] For WriteProperty on ms-DS-Additional-Dns-Host-Name, please check https://dirkjanm.io/krbrelayx-unconstrained-delegation-abuse-toolkit/"
+}
 
 Write-Banner -Text "Users with unconstrained delegation"
 Get-ADUSer -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {(TrustedForDelegation -eq $True)} -Properties TrustedForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\unconstrained_users" -Tee
@@ -556,30 +576,18 @@ Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC
 #
 # Kerberos delegation - constrained
 #
+# https://phackt.com/en-kerberos-constrained-delegation-with-protocol-transition
+#
 
 Write-Banner -Text "Computers with constrained delegation"
-Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {msDS-AllowedToDelegateTo -like '*'} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\constrained_computers" -Tee
-
-Write-Banner -Text "Users with constrained delegation"
-Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {msDS-AllowedToDelegateTo -like '*'} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\constrained_users" -Tee
-
-Write-Banner -Text "Managed Service Accounts with constrained delegation"
-Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {msDS-AllowedToDelegateTo -like '*'} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\constrained_msa" -Tee
-
-#
-# Kerberos delegation - constrained with protocol transition
-#
-# https://phackt.com/delegation-contrainte-kerberos-avec-transition-protocole
-#
-
-Write-Banner -Text "Computers with constrained delegation and protocol transition"
 Get-ADComputer -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {TrustedToAuthForDelegation -eq $True} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\constrained_t2a4d_computers" -Tee
 
-Write-Banner -Text "Users with constrained delegation and protocol transition"
+Write-Banner -Text "Users with constrained delegation"
 Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {TrustedToAuthForDelegation -eq $True} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\constrained_t2a4d_users" -Tee
 
-Write-Banner -Text "Managed Service Accounts with constrained delegation and protocol transition"
+Write-Banner -Text "Managed Service Accounts with constrained delegation"
 Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {TrustedToAuthForDelegation -eq $True} -Properties msDS-AllowedToDelegateTo,TrustedToAuthForDelegation,servicePrincipalName,Description | Format-KerberosResults | Output-Results -Path "$QuickWinsDir\constrained_t2a4d_msa" -Tee
+
 
 #
 # Find services with msDS-AllowedToActOnBehalfOfOtherIdentity
@@ -598,12 +606,13 @@ Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC
 # Find principals (RID >= 1000) with permissive rights
 #
 
-$containers = @("$($RootDSE.defaultNamingContext)","CN=Users,$($RootDSE.defaultNamingContext)","CN=Computers,$($RootDSE.defaultNamingContext)")
+$containers = @("$($RootDSE.defaultNamingContext)","CN=Users,$($RootDSE.defaultNamingContext)","CN=Computers,$($RootDSE.defaultNamingContext)","OU=Domain Controllers,$($RootDSE.defaultNamingContext)")
 
 $containers |foreach {
 
-     Write-Banner -Text "Finding principals (RID > 1000) with permissive rights on '$_' (DS-Replication-Get-Changes-All|WriteProperty|GenericAll|GenericWrite|WriteDacl|WriteOwner|User-Change-Password|User-Force-Change-Password)"
-     Write-Output "[!] Filtering out 'OU=Microsoft Exchange Security Groups'"
+     Write-Banner -Text "Finding principals (RID > 1000) with permissive rights on container '$_' (not looking for nested objects)"
+     
+     # Write-Output "[!] Filtering out 'OU=Microsoft Exchange Security Groups'"
 
      Get-DomainObjectAcl "$_" -ResolveGUIDs | ?{
           ($_.AceQualifier -match 'AccessAllowed') -and `
@@ -612,8 +621,8 @@ $containers |foreach {
           ($_.ObjectAceType -ilike 'User-*Change-Password') -or `
           ($_.ActiveDirectoryRights -imatch 'WriteProperty|GenericAll|GenericWrite|WriteDacl|WriteOwner'))
           } | % {
-              $_ | Add-Member Noteproperty 'PrincipalDN' $(Convert-ADName $_.SecurityIdentifier -OutputType DN)
-              $_ | ?{ $_.PrincipalDN -inotlike '*OU=Microsoft Exchange Security Groups*' }
+              $_ | Add-Member Noteproperty 'TrusteeDN' $(Convert-ADName $_.SecurityIdentifier -OutputType DN)
+              $_ | ?{ $_.TrusteeDN -inotlike '*OU=Microsoft Exchange Security Groups*' }
           } | Output-Results -Path "$QuickWinsDir\permissive_acls" -Tee
 }
 

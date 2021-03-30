@@ -22,9 +22,9 @@ git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd 
 - Privileged users with RID >= 1000 (recursive lookups for nested members of privileged groups, not AdminCount = 1 to avoid orphans)
 - DNSAdmins group members
 - Principals with :
-	- unconstrained delegation (T4D)
+	- unconstrained delegation
+		- looking for dangerous rights on computers with unconstrained delegation, see [https://dirkjanm.io/krbrelayx-unconstrained-delegation-abuse-toolkit/](https://dirkjanm.io/krbrelayx-unconstrained-delegation-abuse-toolkit/)
 	- constrained delegation (also resource based - msDS-AllowedToActOnBehalfOfOtherIdentity)
-	- constrained delegation with protocol transition (T2A4D)
 - Exchange servers
 	- confirm WriteDAC on root domain without InheritOnly
 	- list users with mailboxes  
@@ -38,7 +38,7 @@ git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd 
 - Computers with deprecated OS
 - Users with Kerberos PreAuth disables (AS_REP Roasting)
 - Kerberoastable users
-- Principals (RID >= 1000) with the following rights on **root domain**, **CN=Users** and **CN=Computers** containers:
+- Principals (RID >= 1000) with the following rights on the **root domain**, **Users**, **Computers** and **Domain Controllers** containers:
 	- DS-Replication-Get-Changes-All|WriteProperty|GenericAll|GenericWrite|WriteDacl|WriteOwner|User-Change-Password|User-Force-Change-Password
 
 
