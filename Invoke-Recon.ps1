@@ -766,12 +766,12 @@ foreach($Instance in $AccessibleInstances){
         Get-SQLServerLoginDefaultPw -Instance $Instance | Output-Results -Path "$EnumMSSQLDir\$Instance\bruteforce_creds" -Tee
 }
 
-Write-Banner -Text "Is xp_cmdshell enabled through linked servers of each accessible instances"
+Write-Banner -Text "Is xpcmdshell enabled through linked servers of each accessible instances"
 foreach($Instance in $AccessibleInstances){ 
         Write-Output "`r`n[+] Instance: $Instance"
 
         Get-SQLServerLinkCrawl -Instance $Instance -Query "SELECT CONVERT(INT, ISNULL(value, value_in_use)) AS 'is_XpCmdShell' FROM master.sys.configurations WHERE name like '%cmd%';" |
- select Version,Instance,Sysadmin,User -ExpandProperty CustomQuery | Output-Results -Path "$EnumMSSQLDir\$Instance\linked_servers_xp_cmdshell_enabled" -Tee
+ select Version,Instance,Sysadmin,User -ExpandProperty CustomQuery | Output-Results -Path "$EnumMSSQLDir\$Instance\linked_servers_xpcmdshell_enabled" -Tee
 }
 
 Write-Banner -Text "Auditing each accessible MSSQL Instances"
