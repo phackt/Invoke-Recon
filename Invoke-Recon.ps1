@@ -364,11 +364,35 @@ Get-DomainTrust -Domain $Domain -Server $TargetDC
 Write-Banner -Text "Get-ForestTrust"
 Get-ForestTrust -Forest $Forest.Name
 
+Write-Banner -Text "Finding shadow security principals (bastion forest)"
+Get-ADObject -SearchBase ("CN=Shadow Principal Configuration,CN=Services," + $RootDSE.configurationNamingContext) -Filter * -Properties * | select Name,member,msDS-ShadowPrincipalSid | fl
+
 Write-Banner -Text "Is LAPS installed (CN=ms-mcs-admpwd,$($RootDSE.schemaNamingContext))"
 $islaps = Get-DomainObject "ms-Mcs-AdmPwd" -SearchBase "$($RootDSE.schemaNamingContext)"
 
 if($islaps){
     Write-ColorOutput green "`r`n[+] LAPS schema extension detected"
+}
+
+Write-Banner -Text "Finding computers with LAPS installed (ms-mcs-admpwdexpirationtime=*)"
+Get-DomainComputer -Filter "(ms-mcs-admpwdexpirationtime=*)" @PSBoundParameters | ForEach-Object {
+
+    $HostName = $_.dnshostname
+    $Password = $_."ms-mcs-admpwd"
+
+    If ($_."ms-MCS-AdmPwdExpirationTime" -ge 0) {
+        $CurrentExpiration = $([datetime]::FromFileTime([convert]::ToInt64($_."ms-MCS-AdmPwdExpirationTime",10)))
+    }
+    Else{
+        $CurrentExpiration = "N/A"
+    }
+
+    $Computer = New-Object PSObject
+    $Computer | Add-Member NoteProperty 'ComputerName' "$HostName"
+    $Computer | Add-Member Noteproperty 'Password' "$Password"
+    $Computer | Add-Member Noteproperty 'Expiration' "$CurrentExpiration"
+    $Computer        
+
 }
 
 # If -Quick, skipping what can take a lot of time on large domains
