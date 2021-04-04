@@ -11,7 +11,7 @@
 
 [CmdletBinding()]
 param(
-  [Parameter(Mandatory=$true)]
+  [Parameter(Mandatory=$false)]
   [String]$Domain,
   [Parameter(Mandatory=$false)]
   [String]$TargetDC,
@@ -215,6 +215,12 @@ function Output-Results {
 # Init / Setting variables
 #
 
+# Need to find the current domain
+
+if (! $PSBoundParameters.ContainsKey('Domain')){
+    $Domain = $((Get-Domain).Name)
+}
+
 $CurDir = (Get-Location).Path
 $DicoPath = "$CurDir\dico\has_complexity_no_dump"
 $EnumDir = "$CurDir\results\$Domain\domain"
@@ -251,8 +257,6 @@ if ($PSBoundParameters.ContainsKey('TargetDC')){
         throw "DC $TargetDC is not accessible. Exiting."
     }
 }
-
-$adws = New-Object System.Net.Sockets.TCPClient -ArgumentList $TargetDC, 9389
 
 # PDC concept may be a bit oldschool
 Write-Banner -Text "Looking for PDC (DNS enum)"
@@ -365,7 +369,7 @@ Write-Banner -Text "Get-ForestTrust"
 Get-ForestTrust -Forest $Forest.Name
 
 Write-Banner -Text "Finding shadow security principals (bastion forest)"
-Get-ADObject -SearchBase ("CN=Shadow Principal Configuration,CN=Services," + $RootDSE.configurationNamingContext) -Filter * -Properties * | select Name,member,msDS-ShadowPrincipalSid | fl
+Get-ADObject -SearchBase ("CN=Shadow Principal Configuration,CN=Services," + $RootDSE.configurationNamingContext) -SearchScope OneLevel -Properties * | select Name,member,msDS-ShadowPrincipalSid | fl
 
 Write-Banner -Text "Is LAPS installed (CN=ms-mcs-admpwd,$($RootDSE.schemaNamingContext))"
 $islaps = Get-DomainObject "ms-Mcs-AdmPwd" -SearchBase "$($RootDSE.schemaNamingContext)"
