@@ -19,6 +19,7 @@ git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd 
 - Password domain policy
 - Domains / forests trusts
 - All domain users / groups / computers
+- Computer with LAPS installed
 - Privileged users with RID >= 1000 (recursive lookups for nested members of privileged groups, not AdminCount = 1 to avoid orphans)
 - DNSAdmins group members
 - Principals with :
