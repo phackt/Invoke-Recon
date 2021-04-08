@@ -258,23 +258,21 @@ if ($PSBoundParameters.ContainsKey('TargetDC')){
     }
 }
 
-# PDC concept may be a bit oldschool
-Write-Banner -Text "Looking for PDC (DNS enum)"
-$PDC = Resolve-DnsName -DnsOnly -Type SRV _ldap._tcp.pdc._msdcs.$Domain
-Write-Output $PDC
+if (! $PSBoundParameters.ContainsKey('TargetDC')){
+    # /!\ several SRV DNS entries for PDCs may exist
 
-Write-Banner -Text "Looking for all DCs (DNS enum)"
-$AllDCs = Resolve-DnsName -DnsOnly -Type SRV _ldap._tcp.dc._msdcs.$Domain
-Write-Output $AllDCs
-
-Write-Banner -Text "Checking spooler service is up on DCs"
-foreach($DCip in $AllDCs.IP4Address){
-    Write-Output "[+] ls \\$DCip\pipe\spoolss"
-    ls \\$DCip\pipe\spoolss
+    # PDC concept may be a bit oldschool
+    Write-Banner -Text "Looking for PDC (DNS enum)"
+    $TargetDC = Resolve-DnsName -DnsOnly -Type SRV _ldap._tcp.pdc._msdcs.$Domain
+    Write-Output $TargetDC
 }
 
+Write-Banner -Text "Looking for all DCs (DNS enum)"
+$AllDCs = Resolve-DnsName -DnsOnly -Type SRV -Server $TargetDC _ldap._tcp.dc._msdcs.$Domain
+Write-Output $AllDCs
+
 # Discovering Domain Controllers thanks to Get-DomainController (userAccountControl:1.2.840.113556.1.4.803:=8192)
-$AllDCs_pw = Get-DomainController -Domain $Domain
+$AllDCs_pw = Get-DomainController -Domain $Domain -Server $TargetDC
 
 $nb_AllDCs = $($AllDCs.IP4Address | Sort-Object | Get-Unique).count
 $nb_AllDCs_pw = $($AllDCs_pw.IPAddress | Sort-Object | Get-Unique).count
@@ -285,21 +283,20 @@ if ($nb_AllDCs -ne $nb_AllDCs_pw){
     Write-ColorOutput yellow "    LDAP filter (userAccountControl:1.2.840.113556.1.4.803:=8192): $($nb_AllDCs_pw)`r`n"
 }
 
-# Testing if ADWS is up on PDC and port 389 is accessible
-
-# /!\ several SRV DNS entries for PDCs may exist
 
 if (! $PSBoundParameters.ContainsKey('TargetDC')){
-    $TargetDC = ($PDC | %{$_.IP4Address}) | Select-Object -First 1
+    $TargetDC = ($TargetDC | %{$_.IP4Address}) | Select-Object -First 1
 
     Write-ColorOutput yellow "[+] Target DC ip: $TargetDC"
 } else {
     Write-ColorOutput yellow "[+] Target DC IP explicitly set to: $TargetDC"
 }
 
+# Testing if ADWS is up on TargetDC and port 389 is accessible
+
 $adws = New-Object System.Net.Sockets.TCPClient -ArgumentList $TargetDC, 9389
 if (! $adws.Connected){
-    Write-ColorOutput red "[!] ADWS on PDC $($TargetDC) are not accessible"
+    Write-ColorOutput red "[!] ADWS on target DC $($TargetDC) are not accessible"
 
     if (! $PSBoundParameters.ContainsKey('TargetDC')){
 
@@ -319,6 +316,12 @@ if (! $adws.Connected){
     if (! $adws.Connected){
         Write-ColorOutput yellow "[+] Enumeration using Active Directory module may be limited"
     }
+}
+
+Write-Banner -Text "Checking spooler service is up on DCs"
+foreach($DCip in $AllDCs.IP4Address){
+    Write-Output "[+] ls \\$DCip\pipe\spoolss"
+    ls \\$DCip\pipe\spoolss
 }
 
 $RootDSE = Get-ADRootDSE -Server $TargetDC
@@ -348,7 +351,7 @@ $DomainSID = Get-DomainSID -Domain $Domain -Server $TargetDC
 Write-Output $DomainSID
 
 Write-Banner -Text "Get-Domain"
-Get-Domain -Domain $Domain
+Get-ADDomain -Identity $Domain -Server $TargetDC
 
 Write-Banner -Text "Get-ADForest"
 $Forest = Get-ADForest -Identity $Domain -Server $TargetDC
@@ -369,17 +372,17 @@ Write-Banner -Text "Get-ForestTrust"
 Get-ForestTrust -Forest $Forest.Name
 
 Write-Banner -Text "Finding shadow security principals (bastion forest)"
-Get-ADObject -SearchBase ("CN=Shadow Principal Configuration,CN=Services," + $RootDSE.configurationNamingContext) -SearchScope OneLevel -Properties * | select Name,member,msDS-ShadowPrincipalSid | fl
+Get-ADObject -SearchBase ("CN=Shadow Principal Configuration,CN=Services," + $RootDSE.configurationNamingContext) -SearchScope OneLevel -Server $TargetDC -Properties * | select Name,member,msDS-ShadowPrincipalSid | fl
 
 Write-Banner -Text "Is LAPS installed (CN=ms-mcs-admpwd,$($RootDSE.schemaNamingContext))"
-$islaps = Get-DomainObject "ms-Mcs-AdmPwd" -SearchBase "$($RootDSE.schemaNamingContext)"
+$islaps = Get-DomainObject "ms-Mcs-AdmPwd" -Server $TargetDC -SearchBase "$($RootDSE.schemaNamingContext)"
 
 if($islaps){
     Write-ColorOutput green "`r`n[+] LAPS schema extension detected"
 }
 
 Write-Banner -Text "Finding computers with LAPS installed (ms-mcs-admpwdexpirationtime=*)"
-Get-DomainComputer -Filter "(ms-mcs-admpwdexpirationtime=*)" @PSBoundParameters | ForEach-Object {
+Get-DomainComputer -Server $TargetDC -Filter "(ms-mcs-admpwdexpirationtime=*)" @PSBoundParameters | ForEach-Object {
 
     $HostName = $_.dnshostname
     $Password = $_."ms-mcs-admpwd"
@@ -539,8 +542,8 @@ foreach($ExchangeServer in $ExchangeServers){
 
 # /!\ Also, we want to confirm that the WriteDacl right has not been manually set with the flag InheritOnly for the group 'Exchange Windows Permissions'
 
-$sidEWP = $(Get-DomainGroup 'Exchange Windows Permissions' -Properties objectsid).objectsid
-$AtLeastOneWithoutInheritOnlyWriteDac = Get-DomainObjectAcl $RootDSE.defaultNamingContext | ? { ("$sidEWP" -ne "") -and ($_.SecurityIdentifier -imatch "$sidEWP") -and ($_.ActiveDirectoryRights -imatch 'WriteDacl') -and -not ($_.AceFlags -imatch 'InheritOnly') }
+$sidEWP = $(Get-DomainGroup 'Exchange Windows Permissions' -Properties objectsid -Server $TargetDC).objectsid
+$AtLeastOneWithoutInheritOnlyWriteDac = Get-DomainObjectAcl $RootDSE.defaultNamingContext -Server $TargetDC | ? { ("$sidEWP" -ne "") -and ($_.SecurityIdentifier -imatch "$sidEWP") -and ($_.ActiveDirectoryRights -imatch 'WriteDacl') -and -not ($_.AceFlags -imatch 'InheritOnly') }
 
 if($AtLeastOneWithoutInheritOnlyWriteDac) {
     Write-ColorOutput yellow "`r`n[!] At least one WriteDacl right without InheritOnly on '$($RootDSE.defaultNamingContext)' has been found (confirming privexchange attack)"
@@ -610,7 +613,7 @@ $computers_with_T4D | Format-KerberosResults | Output-Results -Path "$QuickWinsD
 Write-Banner -Text "Looking for dangerous rights on computers with unconstrained delegation"
 
 $computers_with_T4D_and_additionaldnshostnames_writable = ($computers_with_T4D |foreach {
-    Get-DomainObjectAcl "$($_.DistinguishedName)" -ResolveGUIDs | ?{
+    Get-DomainObjectAcl "$($_.DistinguishedName)" -ResolveGUIDs -Server $TargetDC | ?{
         ($_.AceQualifier -match 'AccessAllowed') -and `
         ($_.SecurityIdentifier -match '^S-1-5-.*-[0-9]\d{3,}$') -and ( `
         ($_.ObjectAceType -ilike 'User-*Change-Password') -or `
@@ -676,7 +679,7 @@ $containers |foreach {
      
      # Write-Output "[!] Filtering out 'OU=Microsoft Exchange Security Groups'"
 
-     Get-DomainObjectAcl "$_" -ResolveGUIDs | ?{
+     Get-DomainObjectAcl "$_" -ResolveGUIDs -Server $TargetDC | ?{
           ($_.AceQualifier -match 'AccessAllowed') -and `
           ($_.SecurityIdentifier -match '^S-1-5-.*-[0-9]\d{3,}$') -and ( `
           ($_.ObjectAceType -imatch 'replication-get') -or `
