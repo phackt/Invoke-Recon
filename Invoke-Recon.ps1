@@ -275,7 +275,7 @@ Write-Output $AllDCs
 $AllDCs_pw = Get-DomainController -Domain $Domain -Server $TargetDC
 
 $nb_AllDCs = $($AllDCs.IP4Address | Sort-Object | Get-Unique).count
-$nb_AllDCs_pw = $($AllDCs_pw.IPAddress | Sort-Object | Get-Unique).count
+$nb_AllDCs_pw = $($AllDCs_pw.dnshostname | Sort-Object | Get-Unique).count
 
 if ($nb_AllDCs -ne $nb_AllDCs_pw){
     Write-ColorOutput yellow "[+] Numbers of Domain Controllers mismatch"
@@ -382,7 +382,7 @@ if($islaps){
 }
 
 Write-Banner -Text "Finding computers with LAPS installed (ms-mcs-admpwdexpirationtime=*)"
-Get-DomainComputer -Server $TargetDC -Filter "(ms-mcs-admpwdexpirationtime=*)" @PSBoundParameters | ForEach-Object {
+Get-DomainComputer -Server $TargetDC -Filter "(ms-mcs-admpwdexpirationtime=*)" | ForEach-Object {
 
     $HostName = $_.dnshostname
     $Password = $_."ms-mcs-admpwd"
