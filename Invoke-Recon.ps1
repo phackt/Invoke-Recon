@@ -251,7 +251,7 @@ foreach ($OutputDir in $OutputDirs){
 Write-BigBanner -Text "Starting enumeration of domain $Domain"
 
 if ($PSBoundParameters.ContainsKey('TargetDC')){
-    $DCSMB = New-Object System.Net.Sockets.TCPClient -ArgumentList $TargetDC, 445
+    $DCSMB = New-Object System.Net.Sockets.TCPClient -ArgumentList $TargetDC, 88
 
     if(! $DCSMB.Connected){
         throw "DC $TargetDC is not accessible. Exiting."
