@@ -340,6 +340,11 @@ if ($RootDSE -eq $null){
     }
 }
 
+Write-Banner -Text "Finding foreign principals added to 'Domain Local' groups"
+# http://www.harmj0y.net/blog/redteaming/a-guide-to-attacking-domain-trusts/
+# https://gist.github.com/HarmJ0y/e8f025ab1f04218ee44542f77c8e9842#file-gc_foreign_local_groups-ps1
+Get-DomainObject -SearchBase ("CN=ForeignSecurityPrincipals," + $RootDSE.defaultNamingContext) -SearchScope OneLevel -Domain $Domain | select distinguishedname
+
 Write-Banner -Text "Members of the DCs 'Domain Local' group Administrators"
 foreach($DCip in $AllDCs.IP4Address){
     Write-Output "[+] Digging into $DCip"
@@ -366,7 +371,7 @@ Write-Banner -Text "(Get-DomainPolicy).KerberosPolicy"
 $DomainPolicy."KerberosPolicy"
 
 Write-Banner -Text "Get-DomainTrust"
-Get-DomainTrust -Domain $Domain -Server $TargetDC
+Get-DomainTrust -SearchBase "GC://$($Domain)" -Server $TargetDC
 
 Write-Banner -Text "Get-ForestTrust"
 Get-ForestTrust -Forest $Forest.Name
