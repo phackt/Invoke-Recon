@@ -39,9 +39,9 @@ git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd 
 - Computers with deprecated OS
 - Users with Kerberos PreAuth disables (AS_REP Roasting)
 - Kerberoastable users
-- Principals (RID >= 1000) with the following rights on the **root domain**, **Users**, **Computers** and **Domain Controllers** containers:
+- Trustees (RID >= 1000) having the following rights on the **root domain**, **Users**, **Computers** and **Domain Controllers** containers:
 	- DS-Replication-Get-Changes-All|WriteProperty|GenericAll|GenericWrite|WriteDacl|WriteOwner|User-Change-Password|User-Force-Change-Password
-
+- Trustees having Self-Membership on objects (ability to add themselves to a group for example)
 
 ## And MSSQL Enumeration  
 
@@ -163,7 +163,7 @@ CVE-2020-0688 : True
 
 
 +------+------------------------------------------------+------+
-| Finding principals (RID > 1000) with permissive rights on 'CN=Users,DC=us,DC=funcorp,DC=local' (DS-Replication-Get-Changes-All|WriteProperty|GenericAll|GenericWrite|WriteDacl|WriteOwner)
+| Finding trustees (RID > 1000) having dangerous rights on 'CN=Users,DC=us,DC=funcorp,DC=local' (DS-Replication-Get-Changes-All|WriteProperty|GenericAll|GenericWrite|WriteDacl|WriteOwner)
 +------+------------------------------------------------+------+
 [!] Filtering out 'OU=Microsoft Exchange Security Groups'
 

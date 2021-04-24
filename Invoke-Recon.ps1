@@ -340,10 +340,12 @@ if ($RootDSE -eq $null){
     }
 }
 
-Write-Banner -Text "Finding foreign principals added to 'Domain Local' groups"
+Write-Banner -Text "Finding Users / Groups with Foreign Domain Group Membership"
+# utile pour déterminer si User A du domaine A est membre de Group B sur domaine B, le DN de Group B apparaitra comme ForeignSecurityPrincipal sur le domaine A pour permettre le backlink memberOf sur User A 
+
 # http://www.harmj0y.net/blog/redteaming/a-guide-to-attacking-domain-trusts/
 # https://gist.github.com/HarmJ0y/e8f025ab1f04218ee44542f77c8e9842#file-gc_foreign_local_groups-ps1
-Get-DomainObject -SearchBase ("CN=ForeignSecurityPrincipals," + $RootDSE.defaultNamingContext) -SearchScope OneLevel -Domain $Domain | select distinguishedname
+Get-DomainObject -SearchBase ("CN=ForeignSecurityPrincipals," + $RootDSE.defaultNamingContext) -SearchScope OneLevel -Domain $Domain | ? {$_.objectsid -match '^S-1-5-.*-[1-9]\d{2,}$'} | select distinguishedname
 
 Write-Banner -Text "Members of the DCs 'Domain Local' group Administrators"
 foreach($DCip in $AllDCs.IP4Address){
@@ -673,14 +675,14 @@ Get-ADUser -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {
 Get-ADServiceAccount -SearchBase $RootDSE.defaultNamingContext -Server $TargetDC -Filter {msDS-AllowedToActOnBehalfOfOtherIdentity -like '*'} -Properties msDS-AllowedToActOnBehalfOfOtherIdentity,servicePrincipalName,Description | Output-Results -Path "$QuickWinsDir\actonbehalf_msa" -Tee
 
 #
-# Find principals (RID >= 1000) with permissive rights
+# Find trustees (RID >= 1000) with dangerous rights
 #
 
 $containers = @("$($RootDSE.defaultNamingContext)","CN=Users,$($RootDSE.defaultNamingContext)","CN=Computers,$($RootDSE.defaultNamingContext)","OU=Domain Controllers,$($RootDSE.defaultNamingContext)")
 
 $containers |foreach {
 
-     Write-Banner -Text "Finding principals (RID > 1000) with permissive rights on container '$_' (not looking for nested objects)"
+     Write-Banner -Text "Finding trustees (RID > 1000) having dangerous rights on container '$_' (not looking for nested objects)"
      
      # Write-Output "[!] Filtering out 'OU=Microsoft Exchange Security Groups'"
 
@@ -695,6 +697,25 @@ $containers |foreach {
               $_ | ?{ $_.TrusteeDN -inotlike '*OU=Microsoft Exchange Security Groups*' }
           } | Output-Results -Path "$QuickWinsDir\permissive_acls" -Tee
 }
+
+Write-ColorOutput yellow "[+] For an exhaustive list of ACL abuse paths, use BloodHound"
+Write-ColorOutput yellow "    https://www.ired.team/offensive-security-experiments/active-directory-kerberos-abuse/abusing-active-directory-acls-aces"
+
+#
+# Find trustees (RID >= 1000) with Self right on ObjectAceType Self-Membership
+#
+
+Write-Banner -Text "Finding trustees (RID > 1000) having Self-Membership - seems BloodHound is missing this check"
+
+Get-DomainObjectAcl -SearchBase "$($RootDSE.defaultNamingContext)" -SearchScope Subtree -ResolveGUIDs -Server $TargetDC | ?{
+          ($_.AceQualifier -match 'AccessAllowed') -and `
+          ($_.SecurityIdentifier -match '^S-1-5-.*-[0-9]\d{3,}$') -and `
+          ($_.ActiveDirectoryRights -match 'Self') -and ` 
+          ($_.ObjectAceType -match 'Self-Membership')
+          } | % {
+              $_ | Add-Member Noteproperty 'TrusteeDN' $(Convert-ADName $_.SecurityIdentifier -OutputType DN)
+              $_ | ?{ $_.TrusteeDN -inotlike '*OU=Microsoft Exchange Security Groups*' }
+          } |  Output-Results -Path "$QuickWinsDir\self-membership_aces" -Tee
 
 # ----------------------------------------------------------------
 # ----------------------------------------------------------------
@@ -712,7 +733,7 @@ Write-Banner -Text "Enumerate MSSQL instances (looking for SPN service class MSS
 $AllSQLInstances = Get-SQLInstanceDomain -IncludeIP -DomainController $TargetDC
 $AllSQLInstances | Output-Results -Path "$EnumMSSQLDir\instances" -Tee
 
-Write-Banner -Text "Are MSSQL instances accessible within current security context ?"
+Write-Banner -Text "Are MSSQL instances accessible within current access token ?"
 $Instances = $AllSQLInstances | Get-SQLConnectionTestThreaded
 $AccessibleInstances = New-Object System.Collections.Generic.HashSet[String]
 foreach($Instance in $Instances){
