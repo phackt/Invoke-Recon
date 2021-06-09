@@ -16,7 +16,7 @@ git clone --recurse-submodules https://github.com/phackt/Invoke-Recon.git && cd 
 - Find all DCs
 	- check if ADWS are accessible in order to be able to use the Active Directory powershell module
 	- check if gap between findings with DNS (SRV) enumeration and members of 'Domain Controllers' group
-- Password domain policy
+- Password domain policy (Default domain policy) + Password Settings Objects (PSO)
 - Domains / forests trusts
 - All domain users / groups / computers
 - Computer with LAPS installed

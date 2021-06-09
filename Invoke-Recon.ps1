@@ -372,6 +372,9 @@ $DomainPolicy."SystemAccess"
 Write-Banner -Text "(Get-DomainPolicy).KerberosPolicy"
 $DomainPolicy."KerberosPolicy"
 
+Write-Banner -Text "Password Settings Objects"
+Get-ADFineGrainedPasswordPolicy -Filter "name -like '*'"
+
 Write-Banner -Text "Get-DomainTrust"
 Get-DomainTrust -SearchBase "GC://$($Domain)" -Server $TargetDC
 
