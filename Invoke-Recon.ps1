@@ -347,12 +347,6 @@ Write-Banner -Text "Finding Users / Groups with Foreign Domain Group Membership"
 # https://gist.github.com/HarmJ0y/e8f025ab1f04218ee44542f77c8e9842#file-gc_foreign_local_groups-ps1
 Get-DomainObject -SearchBase ("CN=ForeignSecurityPrincipals," + $RootDSE.defaultNamingContext) -SearchScope OneLevel -Domain $Domain | ? {$_.objectsid -match '^S-1-5-.*-[1-9]\d{2,}$'} | select distinguishedname
 
-Write-Banner -Text "Members of the DCs 'Domain Local' group Administrators"
-foreach($DCip in $AllDCs.IP4Address){
-    Write-Output "[+] Digging into $DCip"
-    Get-NetLocalGroupMember -ComputerName $DCip -GroupName "Administrators"
-}
-
 Write-Banner -Text "Get-DomainSID"
 $DomainSID = Get-DomainSID -Domain $Domain -Server $TargetDC
 Write-Output $DomainSID

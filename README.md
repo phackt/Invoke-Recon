@@ -107,20 +107,6 @@ IP4Address : 192.168.2.1
 
 
 +------+------------------------------------------------+------+
-| Members of the DCs 'Domain Local' group Administrators
-+------+------------------------------------------------+------+
-[+] Digging into 192.168.2.1
-
-ComputerName : 192.168.2.1
-GroupName    : Administrators
-MemberName   : USFUN\Administrator
-SID          : S-1-5-21-3965405831-1015596948-2589850225-500
-IsGroup      : False
-IsDomain     : False
-...
-
-
-+------+------------------------------------------------+------+
 | Nested privileged users (RID >= 1000)
 +------+------------------------------------------------+------+
 
