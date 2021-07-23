@@ -481,22 +481,23 @@ foreach($ExchangeServer in $ExchangeServers){
 
     ##################################################################################
     #PrivExchange
+
     $PrivExchange = $true
     switch($ExchangeServer.MajorVersion)
     {
         "15" {
                 switch($ExchangeServer.MinorVersion)
                 {
-                    "2" {if([int]$ExchangeServer.Build -ge 330){$CVE20200688 = $false};Break}
-                    "1" {if([int]$ExchangeServer.Build -ge 1713){$CVE20200688 = $false};Break}
-                    "0" {if([int]$ExchangeServer.Build -ge 1473){$CVE20200688 = $false};Break}
+                    "2" {if([int]$ExchangeServer.Build -ge 330){$PrivExchange = $false};Break}
+                    "1" {if([int]$ExchangeServer.Build -ge 1713){$PrivExchange = $false};Break}
+                    "0" {if([int]$ExchangeServer.Build -ge 1473){$PrivExchange = $false};Break}
                 }
                 Break
              }
         "14" {
                 switch($ExchangeServer.MinorVersion)
                 {
-                    "3" {if([int]$ExchangeServer.Build -ge 442){$CVE20200688 = $false};Break}
+                    "3" {if([int]$ExchangeServer.Build -ge 442){$PrivExchange = $false};Break}
                 }
                 Break
              }
@@ -507,6 +508,7 @@ foreach($ExchangeServer in $ExchangeServers){
 
     ##################################################################################
     #CVE-2020-0688
+
     $CVE20200688 = $true
     switch($ExchangeServer.MajorVersion)
     {
