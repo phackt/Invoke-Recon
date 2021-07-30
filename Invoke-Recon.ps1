@@ -469,8 +469,8 @@ Write-Banner -Text "Looking for Exchange servers"
 
 # Only keeping for now CN=ms-Exch-Exchange-Server
 
-$ExchangeServers = Get-ADExchangeServer -ConfigurationNamingContext $RootDSE.configurationNamingContext -Server $TargetDC | Where-Object {$_.Category -like "CN=ms-Exch-Exchange-Server*"} | Select-Object Version,FQDN,Roles,Class
-$ExchangeServers | Output-Results -Path "$EnumDir\exchange_servers"
+$ExchangeServers = Get-ADExchangeServer -ConfigurationNamingContext $RootDSE.configurationNamingContext -Server $TargetDC | Where-Object {$_.Category -like "CN=ms-Exch-Exchange-Server*"}
+$ExchangeServers | Select-Object Version,FQDN,Roles,Class | Output-Results -Path "$EnumDir\exchange_servers"
 
 # Looking for [PrivExchange, CVE-2020-0688]
 # https://portal.msrc.microsoft.com/en-US/security-guidance/advisory/ADV190007
